@@ -1,0 +1,43 @@
+deck:
+  title: Weekly Operations Report
+  template: ops_review_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: Weekly Operations Report
+    subtitle: Platform Health and Delivery Status
+
+  - type: section
+    id: operations_status
+    section_title: Operations Status
+
+  - type: bullets
+    id: current_status
+    title: This Week's Highlights
+    bullets:
+      - No critical production incidents
+      - Scheduled releases completed on time
+      - Observability dashboard coverage expanded
+
+  - type: bullets
+    id: risks_and_issues
+    title: Risks and Issues
+    bullets:
+      - Two low-priority defects remain open
+      - Template onboarding still requires manual support
+      - Asset management process needs standardization
+
+  - type: metric_summary
+    id: ops_metrics
+    title: Weekly KPI Snapshot
+    metrics:
+      - label: Successful Releases
+        value: "14"
+      - label: Sev 1 Incidents
+        value: "0"
+      - label: SLA Attainment
+        value: "99.7%"

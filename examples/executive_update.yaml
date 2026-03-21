@@ -1,0 +1,48 @@
+deck:
+  title: Executive Update
+  template: executive_brief_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: Executive Update
+    subtitle: Quarterly Progress Review
+
+  - type: section
+    id: business_context
+    section_title: Business Context
+    section_subtitle: Current priorities and operating environment
+
+  - type: bullets
+    id: key_highlights
+    title: Key Highlights
+    bullets:
+      - Platform stability improved across core workflows
+      - Reporting automation reduced manual effort
+      - Adoption increased across partner teams
+
+  - type: section
+    id: priorities
+    section_title: Strategic Priorities
+
+  - type: bullets
+    id: top_priorities
+    title: Current Focus Areas
+    bullets:
+      - Standardize platform usage patterns
+      - Improve team onboarding and documentation
+      - Expand reusable templates and examples
+
+  - type: metric_summary
+    id: executive_metrics
+    title: KPI Snapshot
+    metrics:
+      - label: Adoption Growth
+        value: "27%"
+      - label: Manual Effort Reduced
+        value: "40%"
+      - label: Delivery Reliability
+        value: "99.2%"

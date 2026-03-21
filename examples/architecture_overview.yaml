@@ -1,0 +1,42 @@
+deck:
+  title: Platform Architecture Overview
+  template: architecture_overview_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: Platform Architecture Overview
+    subtitle: Template-Driven Presentation Generation
+
+  - type: section
+    id: architecture_section
+    section_title: Core Architecture
+
+  - type: bullets
+    id: architecture_summary
+    title: Design Goals
+    bullets:
+      - Separate content, templates, and rendering logic
+      - Support repeatable deck generation across teams
+      - Enable validation before PowerPoint rendering
+
+  - type: two_column
+    id: architecture_flow
+    title: Processing Flow
+    left_content:
+      - YAML deck definition
+      - Schema validation
+      - Template lookup
+    right_content:
+      - Rendering engine
+      - PowerPoint output
+      - Team-ready deck artifact
+
+  - type: image_caption
+    id: architecture_diagram
+    title: Reference Architecture
+    image_path: assets/platform-architecture.png
+    caption: High-level flow from structured input to generated PowerPoint deck

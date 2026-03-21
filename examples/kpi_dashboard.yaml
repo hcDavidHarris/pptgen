@@ -1,0 +1,41 @@
+deck:
+  title: KPI Dashboard Review
+  template: executive_brief_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: KPI Dashboard Review
+    subtitle: Monthly Performance Snapshot
+
+  - type: section
+    id: performance_section
+    section_title: Performance Review
+
+  - type: metric_summary
+    id: core_metrics
+    title: Core Metrics
+    metrics:
+      - label: Success Rate
+        value: "98.4%"
+      - label: Monthly Requests
+        value: "1.2M"
+      - label: SLA Attainment
+        value: "99.5%"
+
+  - type: bullets
+    id: metric_takeaways
+    title: Key Takeaways
+    bullets:
+      - Reliability remains consistently high
+      - Request volume continues to increase
+      - Response performance remains within target thresholds
+
+  - type: image_caption
+    id: dashboard_image
+    title: Dashboard Snapshot
+    image_path: assets/kpi-dashboard.png
+    caption: Example dashboard image used for monthly KPI review presentations

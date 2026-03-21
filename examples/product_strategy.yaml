@@ -1,0 +1,51 @@
+deck:
+  title: Product Strategy
+  template: ops_review_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: Product Strategy
+    subtitle: Roadmap for pptgen Adoption
+
+  - type: section
+    id: vision_section
+    section_title: Vision
+
+  - type: bullets
+    id: product_vision
+    title: Strategic Goal
+    bullets:
+      - Make deck creation faster, more consistent, and scalable
+      - Reduce dependence on manual slide formatting
+      - Enable AI-assisted authoring for technical and business users
+
+  - type: section
+    id: roadmap_section
+    section_title: Roadmap
+
+  - type: two_column
+    id: roadmap_comparison
+    title: Near-Term vs Next-Phase Focus
+    left_content:
+      - Finalize platform standards
+      - Publish example deck library
+      - Improve onboarding guides
+    right_content:
+      - Expand template catalog
+      - Add richer validation tooling
+      - Integrate broader AI-assisted workflows
+
+  - type: metric_summary
+    id: strategy_metrics
+    title: Adoption Targets
+    metrics:
+      - label: Pilot Teams
+        value: "3"
+      - label: Example Decks
+        value: "5"
+      - label: Target Author Time Savings
+        value: "50%"
