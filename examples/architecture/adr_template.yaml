@@ -1,0 +1,101 @@
+deck:
+  title: Architecture Decision Record — Event-Driven Messaging
+  template: ops_review_v1
+  author: Platform Architecture Team
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: Architecture Decision Record
+    subtitle: "Event-Driven Messaging Platform"
+
+  - type: section
+    id: adr_context_section
+    section_title: Context and Problem Statement
+    section_subtitle: Why a decision was needed
+
+  - type: bullets
+    id: context_slide
+    title: Context
+    bullets:
+      - Services share state changes via synchronous REST polling today
+      - Polling creates unnecessary load and coupling between services
+      - Batch jobs introduce up to 6-hour data latency
+      - No auditable event history exists for incident post-mortems
+
+  - type: section
+    id: options_section
+    section_title: Options Considered
+    section_subtitle: Evaluated alternatives
+
+  - type: two_column
+    id: options_comparison
+    title: Options Considered
+    left_content:
+      - "Azure Service Bus (selected)"
+      - Fully managed, no infra overhead
+      - Native Azure RBAC and private endpoints
+      - Dead-letter queues built in
+      - Per-message pricing model
+    right_content:
+      - Apache Kafka on AKS (not selected)
+      - Higher raw throughput ceiling
+      - Requires dedicated cluster management
+      - Higher operational complexity
+      - Team lacks Kafka operational experience
+
+  - type: section
+    id: decision_section
+    section_title: Decision
+    section_subtitle: What was decided and why
+
+  - type: bullets
+    id: decision_slide
+    title: Decision
+    bullets:
+      - Adopt Azure Service Bus for all inter-service events
+      - Use topic and subscription model for fan-out scenarios
+      - Enforce dead-letter queue monitoring from day one
+      - Define event schema contracts before first producer goes live
+      - Review throughput ceiling at 10K events per day threshold
+
+  - type: image_caption
+    id: architecture_diagram
+    title: Target Architecture
+    image_path: assets/event_driven_architecture.png
+    caption: >
+      Event-driven topology with Service Bus topics, service subscriptions,
+      and dead-letter queues routed to the monitoring platform.
+
+  - type: section
+    id: consequences_section
+    section_title: Consequences and Success Metrics
+    section_subtitle: How we will know this decision was correct
+
+  - type: metric_summary
+    id: success_metrics
+    title: Success Metrics
+    metrics:
+      - label: Data Latency Target
+        value: "<30"
+        unit: " sec"
+      - label: Event Throughput (initial)
+        value: "5K"
+        unit: " /day"
+      - label: Dead-letter Alert SLA
+        value: "100"
+        unit: "%"
+      - label: Services Migrated (target)
+        value: "7"
+        unit: " of 7"
+
+  - type: bullets
+    id: consequences_slide
+    title: Consequences
+    bullets:
+      - Producers must publish events to Service Bus topics; no direct calls
+      - Consumers own their subscription and filter rules
+      - All services must implement idempotent message handling
+      - Schema registry decision deferred to Phase 2 of this ADR

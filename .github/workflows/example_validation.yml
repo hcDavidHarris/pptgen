@@ -1,0 +1,50 @@
+name: Validate Example Decks
+
+on:
+  push:
+    paths:
+      - "examples/**"
+      - "src/pptgen/**"
+      - "templates/registry.yaml"
+  pull_request:
+    paths:
+      - "examples/**"
+      - "src/pptgen/**"
+      - "templates/registry.yaml"
+
+jobs:
+  validate-examples:
+    name: pptgen validate examples
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pptgen
+        run: pip install -e .
+
+      - name: Validate all example decks
+        run: |
+          failed=0
+          while IFS= read -r -d '' yaml_file; do
+            # Skip catalog.yaml and README files
+            basename=$(basename "$yaml_file")
+            if [[ "$basename" == "catalog.yaml" ]]; then
+              continue
+            fi
+            echo "Validating: $yaml_file"
+            if ! pptgen validate --input "$yaml_file"; then
+              echo "FAILED: $yaml_file"
+              failed=$((failed + 1))
+            fi
+          done < <(find examples -name "*.yaml" -print0)
+          if [ "$failed" -gt 0 ]; then
+            echo "$failed example(s) failed validation."
+            exit 1
+          fi
+          echo "All examples validated successfully."

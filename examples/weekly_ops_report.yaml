@@ -2,7 +2,7 @@ deck:
   title: Weekly Operations Report
   template: ops_review_v1
   author: David Harris
-  version: 1.0
+  version: "1.0"
   status: draft
 
 slides:

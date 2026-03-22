@@ -1,0 +1,247 @@
+# pptgen AI Navigation Index
+# Version: 1.0
+#
+# This file maps AI tasks to the key files, documentation, and architecture
+# components relevant to each task. It helps AI assistants quickly locate the
+# right files without reading the entire codebase.
+#
+# Use this index when:
+#   - starting a new development task
+#   - looking for the right playbook or example pattern
+#   - diagnosing validation or rendering failures
+#   - deciding which file to modify for a given change type
+
+version: "1.0"
+
+# ---------------------------------------------------------------------------
+# Task → File Mappings
+# ---------------------------------------------------------------------------
+
+tasks:
+
+  generate_deck_yaml:
+    description: Generate a pptgen YAML deck from notes, outlines, or structured input
+    primary_files:
+      - skills/generate_pptgen_deck_yaml_skill.md
+      - docs/authoring/ai_generation_rules.md
+      - docs/ai-playbooks/routing_table.yaml
+    reference_files:
+      - docs/authoring/slide_type_reference.md
+      - docs/architecture/authoring_contract.md
+    example_patterns:
+      - examples/engineering_delivery/weekly_delivery_update.yaml
+      - examples/eos/eos_rocks.yaml
+      - examples/devops/devops_metrics.yaml
+    default_template: ops_review_v1
+
+  validate_deck_yaml:
+    description: Validate a pptgen YAML deck for schema compliance and quality
+    primary_files:
+      - skills/validate_pptgen_deck_yaml_skill.md
+      - src/pptgen/validators/deck_validator.py
+    reference_files:
+      - docs/architecture/authoring_contract.md
+      - schemas/deck.schema.json
+    cli_command: "pptgen validate --input <deck.yaml>"
+    explain_flag: "pptgen validate --input <deck.yaml> --explain"
+
+  improve_deck_yaml:
+    description: Improve slide quality, titles, and flow of an existing YAML deck
+    primary_files:
+      - skills/improve_pptgen_deck_yaml.md
+    reference_files:
+      - docs/authoring/yaml_authoring_guide.md
+      - docs/authoring/slide_type_reference.md
+
+  build_deck:
+    description: Render a validated YAML deck to a PowerPoint file
+    primary_files:
+      - src/pptgen/render/deck_renderer.py
+      - src/pptgen/render/slide_renderers.py
+    reference_files:
+      - src/pptgen/render/placeholder_mapper.py
+      - src/pptgen/slide_registry.py
+    cli_command: "pptgen build --input <deck.yaml>"
+
+  add_slide_type:
+    description: Implement a new slide type in the rendering engine
+    files_to_modify:
+      - src/pptgen/models/slides.py
+      - src/pptgen/render/slide_renderers.py
+      - src/pptgen/render/deck_renderer.py
+      - src/pptgen/slide_registry.py
+      - templates/registry.yaml
+    reference_files:
+      - docs/ARCHITECTURE_MAP.md
+      - docs/template_placeholder_inventory.md
+    order:
+      - Add Pydantic model to models/slides.py, add to SlideUnion
+      - Add renderer function to slide_renderers.py, register in SLIDE_RENDERERS
+      - Add layout name to SLIDE_TYPE_TO_LAYOUT in deck_renderer.py
+      - Add placeholder idx map to _SLIDE_TYPE_PH_NAMES in deck_renderer.py
+      - Add SlideTypeSpec to slide_registry.py
+      - Add layout to template .pptx file
+      - Update supported_slide_types in templates/registry.yaml
+
+  add_template:
+    description: Register a new PowerPoint template
+    files_to_modify:
+      - templates/registry.yaml
+    reference_files:
+      - docs/template_placeholder_inventory.md
+      - docs/standards/template_authoring_standard.md
+      - docs/standards/template_validation_checklist.md
+    notes:
+      - Keep separate template IDs even when backed by the same .pptx
+      - Place template file at templates/<template_id>/template.pptx
+      - Run template contract validator after adding
+
+  add_cli_command:
+    description: Add a new CLI command to the pptgen tool
+    files_to_modify:
+      - src/pptgen/cli/<new_module>.py
+      - src/pptgen/cli/__init__.py
+    reference_files:
+      - src/pptgen/cli/workspace_init.py
+      - src/pptgen/cli/example_commands.py
+    notes:
+      - Create a new Typer sub-app in src/pptgen/cli/<module>.py
+      - Register with app.add_typer() in cli/__init__.py
+      - Avoid Unicode characters in echo output (Windows cp1252 terminal)
+
+  add_playbook:
+    description: Add a new AI playbook route for a new input type
+    files_to_modify:
+      - docs/ai-playbooks/routing_table.yaml
+      - docs/ai-playbooks/<new-playbook>.md
+    reference_files:
+      - docs/ai-playbooks/README.md
+      - docs/ai-playbooks/ado-summary-to-weekly-delivery.md
+    notes:
+      - Add a new example YAML in examples/ to serve as the pattern
+      - Validate the example with pptgen validate before committing
+
+  add_example:
+    description: Add a new reference YAML example to the example library
+    action:
+      - Create YAML in examples/<library>/<name>.yaml
+      - Run pptgen validate --input examples/<library>/<name>.yaml
+      - Update docs/examples/example_index.md
+      - Update examples/catalog.yaml if needed
+    rules:
+      - All examples must pass pptgen validate with no errors
+      - Quote version, metric values, and colon-containing list items
+      - Use ops_review_v1 as default template unless the example is library-specific
+
+  diagnose_validation_error:
+    description: Understand and fix a pptgen validation error
+    primary_files:
+      - src/pptgen/validators/deck_validator.py
+      - src/pptgen/cli/validation_explain.py
+    reference_files:
+      - docs/architecture/authoring_contract.md
+      - docs/authoring/slide_type_reference.md
+    cli_help: "pptgen validate --input <deck.yaml> --explain"
+    common_errors:
+      - "template not registered: change deck.template to a registered ID (pptgen list-templates)"
+      - "Input should be a valid string: quote list items containing colons"
+      - "maximum 4 metrics: split metric_summary into two slides"
+      - "Extra inputs are not permitted: remove unrecognised YAML field"
+      - "Field required: add the missing field (see slide_type_reference.md)"
+
+# ---------------------------------------------------------------------------
+# Documentation Locations
+# ---------------------------------------------------------------------------
+
+documentation:
+
+  architecture:
+    - path: docs/ARCHITECTURE_MAP.md
+      purpose: Full platform architecture reference — read this first
+    - path: docs/architecture/system_map.md
+      purpose: Concise system maps for engine, workspace, and AI workflow
+    - path: docs/architecture/authoring_contract.md
+      purpose: Canonical YAML field and schema rules
+
+  authoring:
+    - path: docs/authoring/yaml_authoring_guide.md
+      purpose: Manual YAML authoring guide with examples
+    - path: docs/authoring/ai_generation_rules.md
+      purpose: Rules Claude must follow when generating deck YAML
+    - path: docs/authoring/slide_type_reference.md
+      purpose: Per-type field reference
+
+  workspace:
+    - path: docs/workspace/quickstart.md
+      purpose: First-deck workflow quickstart
+    - path: docs/workspace/workflow_runbook.md
+      purpose: Step-by-step operational workflow procedures
+    - path: docs/workspace/workspace_model.md
+      purpose: Workspace directory structure and naming conventions
+
+  ai_playbooks:
+    - path: docs/ai-playbooks/routing_table.yaml
+      purpose: Input type → playbook → example pattern routing table
+    - path: docs/ai-playbooks/README.md
+      purpose: Playbook index and workflow overview
+    - path: docs/ai-playbooks/examples/
+      purpose: End-to-end playbook worked examples
+
+  examples:
+    - path: docs/examples/example_index.md
+      purpose: Scenario → example file mapping table
+    - path: examples/catalog.yaml
+      purpose: Machine-readable example catalogue
+
+  standards:
+    - path: docs/standards/deck_yaml_schema_specification.md
+      purpose: Formal YAML content schema specification
+    - path: docs/standards/template_authoring_standard.md
+      purpose: Rules for building PowerPoint templates
+    - path: docs/standards/template_validation_checklist.md
+      purpose: Checklist for validating template quality
+    - path: docs/template_placeholder_inventory.md
+      purpose: Official placeholder naming contract per layout
+
+  guides:
+    - path: docs/guides/how_decks_are_built.md
+      purpose: Full pipeline walkthrough from input to .pptx
+    - path: docs/guides/repository_guide.md
+      purpose: Where things live in the repo; what to touch for each task type
+
+# ---------------------------------------------------------------------------
+# Key Architecture Files
+# ---------------------------------------------------------------------------
+
+key_architecture_files:
+
+  models:
+    - src/pptgen/models/deck.py        # DeckFile, DeckMetadata
+    - src/pptgen/models/slides.py      # All slide models, SlideUnion
+
+  pipeline:
+    - src/pptgen/loaders/yaml_loader.py           # YAML load + Pydantic parse
+    - src/pptgen/validators/deck_validator.py      # Semantic validation
+    - src/pptgen/render/deck_renderer.py           # PPTX orchestration
+    - src/pptgen/render/slide_renderers.py         # Per-type render functions
+    - src/pptgen/render/placeholder_mapper.py      # Shape name resolution
+
+  registry:
+    - src/pptgen/slide_registry.py                 # Slide type metadata
+    - src/pptgen/registry/registry.py              # Template registry loader
+    - templates/registry.yaml                      # Template registry file
+
+  validation:
+    - src/pptgen/template_contract_validator.py    # Template .pptx contract check
+    - schemas/deck.schema.json                     # JSON Schema for external tooling
+
+  cli:
+    - src/pptgen/cli/__init__.py                   # Main app + build/validate commands
+    - src/pptgen/cli/deck_scaffold.py              # pptgen deck scaffold
+    - src/pptgen/cli/template_inspect.py           # pptgen template inspect
+    - src/pptgen/cli/example_commands.py           # pptgen example list/show/copy
+    - src/pptgen/cli/workspace_init.py             # pptgen workspace init
+    - src/pptgen/cli/validation_explain.py         # Error/warning explanations
+
+  errors:
+    - src/pptgen/errors/__init__.py                # PptgenError hierarchy

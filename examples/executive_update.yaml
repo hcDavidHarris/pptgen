@@ -2,7 +2,7 @@ deck:
   title: Executive Update
   template: executive_brief_v1
   author: David Harris
-  version: 1.0
+  version: "1.0"
   status: draft
 
 slides:

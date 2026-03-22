@@ -1,0 +1,10 @@
+deck:
+  title: Coercion Test Deck
+  template: ops_review_v1
+  author: Test Author
+  version: 1.0
+
+slides:
+  - type: title
+    title: Coercion Test
+    subtitle: Version field is an unquoted float

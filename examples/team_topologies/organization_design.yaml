@@ -7,8 +7,10 @@ slides:
   - type: title
     id: title
     title: Platform Organization Design
+    subtitle: Team Topologies — Organizational Structure
 
   - type: image_caption
     id: org_model
     title: Team Structure
+    image_path: assets/org_design.png
     caption: Stream-aligned teams supported by a central platform team

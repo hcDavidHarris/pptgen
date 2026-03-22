@@ -13,6 +13,6 @@ slides:
     id: three_ways
     title: The Three Ways
     bullets:
-      - Flow: accelerate value delivery from development to operations
-      - Feedback: amplify feedback loops across the system
-      - Continual Learning: foster experimentation and learning
+      - "Flow: accelerate value delivery from development to operations"
+      - "Feedback: amplify feedback loops across the system"
+      - "Continual Learning: foster experimentation and learning"

@@ -35,6 +35,20 @@ templates:
       - metric_summary
       - image_caption
 
+  - template_id: architecture_overview_v1
+    version: "1.0"
+    owner: Analytics Services
+    backup_owner: DevOps Platform Team
+    status: approved
+    path: templates/architecture_overview_v1/template.pptx
+    supported_slide_types:
+      - title
+      - section
+      - bullets
+      - two_column
+      - metric_summary
+      - image_caption
+
   - template_id: ops_review_v1
     version: "1.0"
     owner: Analytics Services

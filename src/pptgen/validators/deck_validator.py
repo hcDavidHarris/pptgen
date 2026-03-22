@@ -15,11 +15,14 @@ What Pydantic already enforces (caught at parse_deck() time, not here):
 What this validator adds on top of Pydantic:
     - deck.template exists in the template registry and is approved
     - slide id values are unique across the deck
-    - metric_summary: max 4 metrics per slide
+    - metric_summary: max 4 metrics per slide (sourced from slide_registry)
     - metric_summary: content quality warnings (single metric, long labels)
-    - bullets: content quality warning when bullet count > 6
+    - bullets: content quality warning when bullet count > 6 (sourced from slide_registry)
     - coercion warnings when raw YAML contained non-string metric values
       or a non-string deck.version
+
+The max_items thresholds for bullets and metric_summary are read from
+SLIDE_TYPE_REGISTRY so they stay in sync with the single source of truth.
 """
 
 from __future__ import annotations
@@ -33,6 +36,7 @@ from ..models.slides import (
     TwoColumnSlide,
 )
 from ..registry.registry import TemplateRegistry
+from ..slide_registry import SLIDE_TYPE_REGISTRY
 
 
 # ---------------------------------------------------------------------------
@@ -165,10 +169,11 @@ def _validate_metric_summary(
     errors: list[str] = []
     warnings: list[str] = []
 
-    # Hard limit: max 4 metrics per Phase 1 contract
-    if len(slide.metrics) > 4:
+    # Hard limit sourced from slide_registry
+    max_metrics = SLIDE_TYPE_REGISTRY["metric_summary"].max_items.get("metrics", 4)
+    if len(slide.metrics) > max_metrics:
         errors.append(
-            f"slide {slide_num} ('{slide.title}'): metrics: maximum 4 metrics "
+            f"slide {slide_num} ('{slide.title}'): metrics: maximum {max_metrics} metrics "
             f"allowed per slide, found {len(slide.metrics)}"
         )
 
@@ -201,10 +206,11 @@ def _validate_bullets(
     slide: BulletsSlide, slide_num: int
 ) -> tuple[list[str], list[str]]:
     warnings: list[str] = []
-    if len(slide.bullets) > 6:
+    max_bullets = SLIDE_TYPE_REGISTRY["bullets"].max_items.get("bullets", 6)
+    if len(slide.bullets) > max_bullets:
         warnings.append(
             f"slide {slide_num} ('{slide.title}'): {len(slide.bullets)} bullets "
-            f"— consider splitting into two slides (recommended max: 6)"
+            f"— consider splitting into two slides (recommended max: {max_bullets})"
         )
     return [], warnings
 

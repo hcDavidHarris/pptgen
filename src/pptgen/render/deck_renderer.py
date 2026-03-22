@@ -22,20 +22,18 @@ from pathlib import Path
 from lxml import etree
 
 from ..models.deck import DeckFile
+from ..slide_registry import SLIDE_TYPE_REGISTRY
 from .slide_renderers import SLIDE_RENDERERS
 from .template_inspector import inspect_template
 from .template_loader import load_template
 
 
 #: Maps slide type string → canonical layout name in the template.
-#: This is the only place where slide types are coupled to layout names.
+#: Derived from SLIDE_TYPE_REGISTRY — do not edit this dict directly.
+#: Add or change layout names in slide_registry.py instead.
 SLIDE_TYPE_TO_LAYOUT: dict[str, str] = {
-    "title": "Title Layout",
-    "section": "Section Layout",
-    "bullets": "Bullets Layout",
-    "two_column": "Two Column Layout",
-    "metric_summary": "Metric Summary Layout",
-    "image_caption": "Image Caption Layout",
+    type_name: spec.layout_name
+    for type_name, spec in SLIDE_TYPE_REGISTRY.items()
 }
 
 #: Maps slide type → {placeholder_format.idx: canonical_name}.

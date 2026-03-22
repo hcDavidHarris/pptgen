@@ -1,0 +1,20 @@
+deck:
+  title: New Presentation
+  template: ops_review_v1
+  author: Author Name
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: New Presentation
+    subtitle: Subtitle
+
+  - type: bullets
+    id: content
+    title: Key Points
+    bullets:
+      - Point 1
+      - Point 2
+      - Point 3

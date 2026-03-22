@@ -17,10 +17,12 @@ function without touching the orchestration layer.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable
 
 from ..models.slides import (
     BulletsSlide,
+    ImageCaptionSlide,
     MetricSummarySlide,
     SectionSlide,
     TitleSlide,
@@ -86,6 +88,16 @@ def render_metric_summary_slide(model: MetricSummarySlide, slide) -> None:
         set_text(slide, f"METRIC_{position}_VALUE", value)
 
 
+def render_image_caption_slide(model: ImageCaptionSlide, slide) -> None:
+    set_text(slide, "TITLE", model.title)
+    set_text(slide, "CAPTION", model.caption)
+    image_shape = find_placeholder(slide, "IMAGE", required=False)
+    if image_shape is not None:
+        image_path = Path(model.image_path)
+        if image_path.exists() and hasattr(image_shape, "insert_picture"):
+            image_shape.insert_picture(str(image_path))
+
+
 # ---------------------------------------------------------------------------
 # Renderer registry
 # ---------------------------------------------------------------------------
@@ -98,4 +110,5 @@ SLIDE_RENDERERS: dict[str, Callable] = {
     "bullets": render_bullets_slide,
     "two_column": render_two_column_slide,
     "metric_summary": render_metric_summary_slide,
+    "image_caption": render_image_caption_slide,
 }

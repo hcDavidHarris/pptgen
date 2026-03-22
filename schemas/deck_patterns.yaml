@@ -1,0 +1,139 @@
+# pptgen Deck Patterns
+# Version: 1.0
+#
+# Defines recommended slide sequence patterns for common deck types.
+# These patterns are guidelines, not hard constraints. They help AI and
+# human authors compose well-structured decks.
+#
+# Pattern structure:
+#   - name:         pattern identifier
+#     description:  what this pattern is used for
+#     sequence:     ordered list of slide types (? = optional, + = repeatable)
+#     example:      path to a reference example deck
+
+patterns:
+
+  - name: engineering_delivery
+    description: >
+      Weekly engineering delivery update. Used for sprint reviews, ADO-sourced
+      delivery summaries, and team status reports.
+    sequence:
+      - title
+      - section             # highlights
+      - bullets             # completed items
+      - bullets?            # in-progress items (optional)
+      - section             # risks and blockers
+      - bullets             # blockers list
+      - section?            # metrics section (optional)
+      - metric_summary      # delivery KPIs
+    example: examples/engineering_delivery/weekly_delivery_update.yaml
+    tags:
+      - ado
+      - sprint
+      - engineering
+      - weekly-update
+
+  - name: executive_update
+    description: >
+      Executive leadership update. High-level status, key decisions, and
+      strategic metrics for a leadership audience.
+    sequence:
+      - title
+      - section             # context or background
+      - bullets             # key highlights or decisions
+      - two_column?         # comparison or split view (optional)
+      - metric_summary      # KPI snapshot
+      - bullets?            # next steps (optional)
+    example: examples/executive_update.yaml
+    tags:
+      - executive
+      - leadership
+      - status
+
+  - name: eos_rocks
+    description: >
+      EOS (Entrepreneurial Operating System) quarterly rocks deck. Defines
+      company-level and functional-team priorities for the quarter.
+    sequence:
+      - title
+      - section             # company rocks
+      - bullets             # company-level priorities
+      - section             # team/functional rocks
+      - two_column          # functional priority split
+      - section?            # success criteria (optional)
+      - bullets?            # success criteria list (optional)
+    example: examples/eos/eos_rocks.yaml
+    tags:
+      - eos
+      - leadership
+      - quarterly
+
+  - name: eos_scorecard
+    description: >
+      EOS weekly scorecard. Uses metric_summary slides to display team-level
+      measurables across functions.
+    sequence:
+      - title
+      - section+            # one section per function or team
+      - metric_summary+     # metrics per section
+    example: examples/eos/eos_scorecard.yaml
+    tags:
+      - eos
+      - scorecard
+      - metrics
+
+  - name: devops_metrics
+    description: >
+      DevOps engineering scorecard. Focused on DORA metrics and CI/CD
+      pipeline health. Used for DevOps metrics reporting.
+    sequence:
+      - title
+      - metric_summary      # DORA or key DevOps KPIs
+      - section?            # breakdown section (optional)
+      - bullets?            # analysis or notes (optional)
+    example: examples/devops/devops_metrics.yaml
+    tags:
+      - devops
+      - dora
+      - metrics
+      - scorecard
+
+  - name: architecture_review
+    description: >
+      Architecture decision record (ADR) or design review deck. Covers
+      context, decision rationale, and consequences.
+    sequence:
+      - title
+      - section             # context / background
+      - bullets             # problem statement or context
+      - section             # decision
+      - bullets             # chosen approach
+      - image_caption?      # architecture diagram (optional)
+      - section             # consequences
+      - two_column          # pros and cons or before/after
+    example: examples/architecture_overview.yaml
+    tags:
+      - architecture
+      - adr
+      - design-review
+
+  - name: kpi_dashboard
+    description: >
+      KPI dashboard deck. Multiple metric sections for different domains.
+    sequence:
+      - title
+      - section+            # one section per domain
+      - metric_summary+     # metrics per domain
+    example: examples/kpi_dashboard.yaml
+    tags:
+      - kpi
+      - dashboard
+      - metrics
+
+pattern_rules:
+  - rule: A title slide should always be the first slide.
+  - rule: Section slides should precede groups of related content slides.
+  - rule: metric_summary slides should not exceed 4 metrics.
+  - rule: bullets slides should not exceed 6 items.
+  - rule: two_column slides work best for comparisons and functional splits.
+  - rule: image_caption slides should include a descriptive caption.

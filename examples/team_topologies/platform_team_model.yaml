@@ -7,8 +7,10 @@ slides:
   - type: title
     id: title
     title: Platform Team Model
+    subtitle: Team Topologies — Platform Engineering
 
   - type: image_caption
     id: platform_model
     title: Platform Team Architecture
+    image_path: assets/platform_team_model.png
     caption: Platform team provides shared services for stream-aligned teams

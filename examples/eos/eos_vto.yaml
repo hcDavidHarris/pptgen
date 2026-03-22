@@ -2,7 +2,7 @@ deck:
   title: EOS Vision / Traction Organizer
   template: executive_brief_v1
   author: David Harris
-  version: 1.0
+  version: "1.0"
   status: draft
 
 slides:
@@ -32,11 +32,11 @@ slides:
     id: focus
     title: Core Focus and Niche
     left_content:
-      - Purpose: turn structured content into presentation-ready artifacts
-      - Mission: reduce manual deck creation across teams
+      - "Purpose: turn structured content into presentation-ready artifacts"
+      - "Mission: reduce manual deck creation across teams"
     right_content:
-      - Niche: YAML-driven, template-governed deck generation
-      - Advantage: AI-assisted creation with deterministic rendering
+      - "Niche: YAML-driven, template-governed deck generation"
+      - "Advantage: AI-assisted creation with deterministic rendering"
 
   - type: bullets
     id: long_term_vision

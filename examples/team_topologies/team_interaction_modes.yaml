@@ -7,6 +7,7 @@ slides:
   - type: title
     id: title
     title: Team Interaction Modes
+    subtitle: Team Topologies — Collaboration Patterns
 
   - type: two_column
     id: interaction_modes

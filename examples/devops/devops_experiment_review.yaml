@@ -7,6 +7,7 @@ slides:
   - type: title
     id: title
     title: DevOps Experiment Review
+    subtitle: Platform Improvement Experiments
 
   - type: bullets
     id: experiments

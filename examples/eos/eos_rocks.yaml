@@ -2,7 +2,7 @@ deck:
   title: EOS Quarterly Rocks
   template: ops_review_v1
   author: David Harris
-  version: 1.0
+  version: "1.0"
   status: draft
 
 slides:
@@ -32,13 +32,13 @@ slides:
     id: leadership_rocks
     title: Functional Rocks
     left_content:
-      - Product: define roadmap and adoption targets
-      - Engineering: implement rendering MVP
-      - Operations: establish template management process
+      - "Product: define roadmap and adoption targets"
+      - "Engineering: implement rendering MVP"
+      - "Operations: establish template management process"
     right_content:
-      - Analytics: create example deck library
-      - Leadership: align EOS reporting cadence
-      - Enablement: publish onboarding guides
+      - "Analytics: create example deck library"
+      - "Leadership: align EOS reporting cadence"
+      - "Enablement: publish onboarding guides"
 
   - type: bullets
     id: success_criteria

@@ -12,4 +12,5 @@ slides:
   - type: image_caption
     id: pipeline_diagram
     title: Pipeline Overview
+    image_path: assets/devops_pipeline.png
     caption: Build → Test → Security Scan → Deploy → Monitor

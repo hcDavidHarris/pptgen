@@ -220,7 +220,7 @@ class TestRenderMetricSummarySlide:
 
 class TestSlideRenderersRegistry:
     def test_all_types_registered(self):
-        expected = {"title", "section", "bullets", "two_column", "metric_summary"}
+        expected = {"title", "section", "bullets", "two_column", "metric_summary", "image_caption"}
         assert expected.issubset(SLIDE_RENDERERS.keys())
 
     def test_values_are_callable(self):

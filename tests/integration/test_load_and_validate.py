@@ -55,12 +55,11 @@ class TestExecutiveUpdateDeck:
         deck, _ = executive_update
         assert deck.deck.author == "David Harris"
 
-    def test_version_coerced_from_float(self, executive_update):
-        """executive_update.yaml has version: 1.0 (unquoted) — must be coerced."""
+    def test_version_is_string(self, executive_update):
+        """executive_update.yaml version must be a string after loading."""
         deck, raw = executive_update
         assert deck.deck.version == "1.0"
-        # Confirm the raw YAML was actually a float (proving coercion occurred)
-        assert isinstance(raw["deck"]["version"], float)
+        assert isinstance(deck.deck.version, str)
 
     def test_deck_has_six_slides(self, executive_update):
         deck, _ = executive_update
@@ -120,9 +119,15 @@ class TestExecutiveUpdateDeck:
         assert entry is not None
         assert entry.status == "approved"
 
-    def test_version_coercion_warning_is_emitted(self, executive_update, real_registry):
-        """Coercion warning should be emitted for the unquoted version: 1.0."""
-        deck, raw = executive_update
+    def test_version_coercion_warning_is_emitted(self, fixtures_dir, real_registry):
+        """Coercion warning should be emitted for the unquoted version: 1.0.
+
+        Uses tests/fixtures/version_coercion_deck.yaml which intentionally
+        has version: 1.0 (unquoted float) to exercise the coercion path.
+        """
+        deck, raw = load_deck(fixtures_dir / "version_coercion_deck.yaml")
+        # Raw YAML should have parsed the unquoted 1.0 as a float
+        assert isinstance(raw["deck"]["version"], float)
         result = validate_deck(deck, registry=real_registry, raw_data=raw)
         assert any(
             "deck.version" in w and "coerced" in w for w in result.warnings
