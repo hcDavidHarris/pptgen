@@ -136,7 +136,7 @@ class TestDelegation:
     def test_returns_route_input_result_unchanged(self):
         """The playbook_id in the result must equal what route_input returned.
 
-        Both route_input and execute_playbook are mocked so the sentinel ID
+        Both route_input and execute_playbook_full are mocked so the sentinel ID
         does not propagate into the real routing table lookup.
         """
         from pptgen.spec.presentation_spec import PresentationSpec, SectionSpec
@@ -151,8 +151,8 @@ class TestDelegation:
                 return_value=sentinel,
             ),
             patch(
-                "pptgen.pipeline.generation_pipeline.execute_playbook",
-                return_value=dummy_spec,
+                "pptgen.pipeline.generation_pipeline.execute_playbook_full",
+                return_value=(dummy_spec, ""),
             ),
         ):
             result = generate_presentation("any text")

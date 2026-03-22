@@ -1,21 +1,20 @@
-"""Generation pipeline — Phase 4 orchestration seam.
+"""Generation pipeline — Phase 5A orchestration seam.
 
-Current pipeline (Stage 5 complete)::
+Current pipeline::
 
-    generate_presentation(input_text, output_path=None, template_id=None)
+    generate_presentation(input_text, output_path=None, template_id=None, mode="deterministic")
         │
-        ├─ validate input type
+        ├─ validate input type and mode
         ├─ normalise (strip)
         ├─ [if template_id given] validate it against registry early
-        ├─ route_input()              →  playbook_id
-        ├─ execute_playbook()         →  PresentationSpec
-        ├─ resolve template           →  override > playbook default > spec default
-        ├─ validate resolved template against registry
-        ├─ set spec.template          →  resolved template_id
-        ├─ plan_slides()              →  SlidePlan
-        ├─ convert_spec_to_deck()     →  deck_definition (dict)
+        ├─ route_input()                 →  playbook_id
+        ├─ execute_playbook_full()       →  PresentationSpec + fallback note
+        ├─ resolve template              →  override > playbook default > spec default
+        ├─ set spec.template             →  resolved template_id
+        ├─ plan_slides()                 →  SlidePlan
+        ├─ convert_spec_to_deck()        →  deck_definition (dict)
         ├─ [if output_path given]
-        │   └─ render()               →  .pptx file written
+        │   └─ render()                  →  .pptx file written
         └─ return PipelineResult(stage="rendered" | "deck_planned", ...)
 """
 
@@ -28,7 +27,8 @@ from typing import Any
 from ..errors import PptgenError as _PptgenError
 from ..input_router import InputRouterError, route_input
 from ..loaders.yaml_loader import parse_deck
-from ..playbook_engine import PlaybookNotFoundError, execute_playbook, get_default_template
+from ..playbook_engine import PlaybookNotFoundError, execute_playbook_full, get_default_template
+from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES, UnknownStrategyError
 from ..planner import SlidePlan, plan_slides
 from ..registry.registry import TemplateRegistry
 from ..render import render_deck
@@ -48,23 +48,22 @@ class PipelineResult:
     """Structured result returned by :func:`generate_presentation`.
 
     Attributes:
-        stage:             Current pipeline stage.  ``"deck_planned"`` or
-                           ``"rendered"`` after a successful render.
+        stage:             Current pipeline stage (``"deck_planned"`` or ``"rendered"``).
         playbook_id:       Playbook identifier selected by the input router.
         input_text:        The normalised input text that was processed.
-        template_id:       Template ID used for rendering, resolved from the
-                           override / playbook default / spec default chain.
+        mode:              Execution mode used — ``"deterministic"`` or ``"ai"``.
+        template_id:       Template ID used for rendering.
         presentation_spec: Extracted :class:`~pptgen.spec.presentation_spec.PresentationSpec`.
         slide_plan:        :class:`~pptgen.planner.SlidePlan` from the planning engine.
         deck_definition:   Deck YAML structure (plain dict) from the translator.
-        output_path:       Absolute path to the rendered ``.pptx`` file, or
-                           ``None`` if rendering was not requested.
-        notes:             Optional diagnostic notes.
+        output_path:       Absolute path to the rendered ``.pptx`` file, or ``None``.
+        notes:             Optional diagnostic notes (e.g. AI fallback messages).
     """
 
     stage: str
     playbook_id: str
     input_text: str
+    mode: str = field(default=DETERMINISTIC)
     template_id: str | None = field(default=None)
     presentation_spec: PresentationSpec | None = field(default=None)
     slide_plan: SlidePlan | None = field(default=None)
@@ -77,34 +76,22 @@ def generate_presentation(
     input_text: str,
     output_path: Path | None = None,
     template_id: str | None = None,
+    mode: str = DETERMINISTIC,
 ) -> PipelineResult:
     """Entry point for the presentation generation pipeline.
 
-    Validates *input_text*, routes it to a playbook, executes the playbook,
-    resolves the template, plans the slide structure, converts the spec to a
-    deck definition, and optionally renders a ``.pptx`` file.
-
-    Template resolution precedence:
-
-    1. *template_id* parameter (explicit override)
-    2. Playbook-specific default from :func:`~pptgen.playbook_engine.get_default_template`
-    3. ``PresentationSpec.template`` field default (``"ops_review_v1"``)
-
     Args:
         input_text:  Raw text to process.  Leading/trailing whitespace is stripped.
-        output_path: If provided, the deck is rendered and saved here.  The
-                     parent directory is created when necessary.
-        template_id: Optional template override.  Must be a registered template
-                     ID.  Raises :class:`PipelineError` if the ID is not in the
-                     registry.
+        output_path: If provided, the deck is rendered to this path.
+        template_id: Optional template override.  Must be a registered ID.
+        mode:        Execution mode — ``"deterministic"`` (default) or ``"ai"``.
 
     Returns:
-        :class:`PipelineResult` with ``stage="rendered"`` when *output_path*
-        was provided and rendering succeeded; ``stage="deck_planned"`` otherwise.
+        :class:`PipelineResult` with ``stage="rendered"`` or ``"deck_planned"``.
 
     Raises:
-        PipelineError: If *input_text* is not a string, *template_id* is not
-                       registered, or any internal pipeline step fails.
+        PipelineError: If *input_text* is not a string, *template_id* or *mode*
+                       is invalid, or any pipeline step fails.
     """
     if not isinstance(input_text, str):
         raise PipelineError(
@@ -112,9 +99,14 @@ def generate_presentation(
             f"got {type(input_text).__name__!r}."
         )
 
+    if mode not in VALID_STRATEGIES:
+        raise PipelineError(
+            f"Unknown mode '{mode}'.  "
+            f"Valid modes: {', '.join(sorted(VALID_STRATEGIES))}."
+        )
+
     normalised = input_text.strip()
 
-    # Validate the explicit override early so the caller gets a fast, clear error
     if template_id is not None:
         _validate_template_id(template_id)
 
@@ -124,26 +116,30 @@ def generate_presentation(
         raise PipelineError(str(exc)) from exc
 
     try:
-        spec = execute_playbook(playbook_id, normalised)
-    except PlaybookNotFoundError as exc:
+        spec, exec_notes = execute_playbook_full(playbook_id, normalised, strategy=mode)
+    except (PlaybookNotFoundError, UnknownStrategyError) as exc:
         raise PipelineError(str(exc)) from exc
 
-    # Resolve template: override > playbook default > spec default
     resolved_template = _resolve_template(playbook_id, template_id, spec.template)
-
-    # Apply resolved template to the spec
     spec = spec.model_copy(update={"template": resolved_template})
 
     slide_plan = plan_slides(spec, playbook_id=playbook_id)
     deck_definition = convert_spec_to_deck(spec)
 
-    notes = "no signals matched; routed to fallback" if not normalised else ""
+    # Compose diagnostic notes
+    notes_parts: list[str] = []
+    if not normalised:
+        notes_parts.append("no signals matched; routed to fallback")
+    if exec_notes:
+        notes_parts.append(exec_notes)
+    notes = "; ".join(notes_parts)
 
     if output_path is None:
         return PipelineResult(
             stage="deck_planned",
             playbook_id=playbook_id,
             input_text=normalised,
+            mode=mode,
             template_id=resolved_template,
             presentation_spec=spec,
             slide_plan=slide_plan,
@@ -157,6 +153,7 @@ def generate_presentation(
         stage="rendered",
         playbook_id=playbook_id,
         input_text=normalised,
+        mode=mode,
         template_id=resolved_template,
         presentation_spec=spec,
         slide_plan=slide_plan,
@@ -175,39 +172,14 @@ def _resolve_template(
     override: str | None,
     spec_default: str,
 ) -> str:
-    """Return the template ID to use, applying precedence rules.
-
-    Precedence (highest to lowest):
-
-    1. *override* — explicit caller-supplied template ID
-    2. Playbook-specific default from :func:`~pptgen.playbook_engine.get_default_template`
-    3. *spec_default* — the PresentationSpec's current ``template`` value
-
-    Args:
-        playbook_id:  Resolved playbook identifier.
-        override:     Explicit template ID supplied by the caller, or ``None``.
-        spec_default: Current ``PresentationSpec.template`` value.
-
-    Returns:
-        A template ID string (never empty).
-    """
+    """Return the template ID to use, applying precedence rules."""
     if override is not None:
         return override
-    playbook_default = get_default_template(playbook_id)
-    # get_default_template always returns a non-empty string, but fall back
-    # to spec_default to be defensive
-    return playbook_default or spec_default
+    return get_default_template(playbook_id) or spec_default
 
 
 def _validate_template_id(template_id: str) -> None:
-    """Raise :class:`PipelineError` if *template_id* is not in the registry.
-
-    Args:
-        template_id: Template ID to validate.
-
-    Raises:
-        PipelineError: If *template_id* is not registered.
-    """
+    """Raise PipelineError if *template_id* is not in the registry."""
     try:
         registry = TemplateRegistry.from_file(_REGISTRY_PATH)
     except _PptgenError as exc:
@@ -230,17 +202,7 @@ def _render(
     spec_template: str,
     output_path: Path,
 ) -> None:
-    """Load *deck_definition*, resolve template, and write a ``.pptx`` to *output_path*.
-
-    Args:
-        deck_definition: Plain dict produced by :func:`~pptgen.spec.spec_to_deck.convert_spec_to_deck`.
-        spec_template:   Template ID string from the PresentationSpec.
-        output_path:     Destination path for the rendered ``.pptx`` file.
-
-    Raises:
-        PipelineError: Wraps any :class:`~pptgen.errors.PptgenError` raised by
-                       the loader, registry, or renderer.
-    """
+    """Load *deck_definition*, resolve template, and write a .pptx."""
     try:
         deck = parse_deck(deck_definition)
         registry = TemplateRegistry.from_file(_REGISTRY_PATH)
