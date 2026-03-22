@@ -5,12 +5,13 @@ the full Phase 4 generation pipeline.
 
 Usage::
 
-    pptgen generate <input_file> [--output <path>] [--debug]
+    pptgen generate <input_file> [--output <path>] [--template <id>] [--debug]
 
 Examples::
 
     pptgen generate notes/meeting_notes.txt --output output/meeting.pptx
-    pptgen generate notes/sprint_summary.txt --debug
+    pptgen generate notes/sprint_summary.txt --template executive_brief_v1
+    pptgen generate notes/adr.txt --template architecture_overview_v1 --debug
 """
 
 from __future__ import annotations
@@ -35,6 +36,15 @@ def generate_command(
         help=(
             "Output .pptx path.  "
             "Defaults to output/<input_stem>.pptx."
+        ),
+    ),
+    template: str | None = typer.Option(
+        None,
+        "--template",
+        "-t",
+        help=(
+            "Template ID override (must be registered in templates/registry.yaml).  "
+            "Defaults to the playbook-specific template."
         ),
     ),
     debug: bool = typer.Option(
@@ -69,7 +79,11 @@ def generate_command(
 
     # --- Run pipeline ---
     try:
-        result = generate_presentation(text, output_path=resolved_output)
+        result = generate_presentation(
+            text,
+            output_path=resolved_output,
+            template_id=template,
+        )
     except PipelineError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -77,6 +91,7 @@ def generate_command(
     # --- Debug summary ---
     if debug:
         typer.echo(f"playbook_id : {result.playbook_id}")
+        typer.echo(f"template_id : {result.template_id}")
         typer.echo(f"stage       : {result.stage}")
         if result.slide_plan is not None:
             typer.echo(f"slide_count : {result.slide_plan.slide_count}")
