@@ -52,9 +52,9 @@ class TestPipelineResultStructure:
         result = generate_presentation("sprint backlog velocity")
         assert isinstance(result, PipelineResult)
 
-    def test_stage_is_routed(self):
+    def test_stage_is_spec_generated(self):
         result = generate_presentation("sprint backlog velocity")
-        assert result.stage == "routed"
+        assert result.stage == "spec_generated"
 
     def test_playbook_id_is_string(self):
         result = generate_presentation("sprint backlog velocity")
@@ -134,11 +134,26 @@ class TestDelegation:
         assert result.playbook_id == "meeting-notes-to-eos-rocks"
 
     def test_returns_route_input_result_unchanged(self):
-        """The playbook_id in the result must equal what route_input returned."""
+        """The playbook_id in the result must equal what route_input returned.
+
+        Both route_input and execute_playbook are mocked so the sentinel ID
+        does not propagate into the real routing table lookup.
+        """
+        from pptgen.spec.presentation_spec import PresentationSpec, SectionSpec
+
         sentinel = "custom-playbook-sentinel"
-        with patch(
-            "pptgen.pipeline.generation_pipeline.route_input",
-            return_value=sentinel,
+        dummy_spec = PresentationSpec(
+            title="T", subtitle="S", sections=[SectionSpec(title="Sec")]
+        )
+        with (
+            patch(
+                "pptgen.pipeline.generation_pipeline.route_input",
+                return_value=sentinel,
+            ),
+            patch(
+                "pptgen.pipeline.generation_pipeline.execute_playbook",
+                return_value=dummy_spec,
+            ),
         ):
             result = generate_presentation("any text")
 
