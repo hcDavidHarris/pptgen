@@ -16,7 +16,10 @@ logic lives in slide_renderers.py and is reached through the registry.
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
+
+from lxml import etree
 
 from ..models.deck import DeckFile
 from .slide_renderers import SLIDE_RENDERERS
@@ -61,6 +64,10 @@ _SLIDE_TYPE_PH_NAMES: dict[str, dict[int, str]] = {
 }
 
 
+_A = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_P = "http://schemas.openxmlformats.org/presentationml/2006/main"
+
+
 def _rename_slide_placeholders(slide, slide_type: str) -> None:
     """Rename cloned placeholder shapes to their canonical pptgen names."""
     ph_names = _SLIDE_TYPE_PH_NAMES.get(slide_type, {})
@@ -68,6 +75,52 @@ def _rename_slide_placeholders(slide, slide_type: str) -> None:
         pf = getattr(shape, "placeholder_format", None)
         if pf is not None and pf.idx in ph_names:
             shape.name = ph_names[pf.idx]
+
+
+def _copy_layout_lstStyles(slide, layout) -> None:
+    """Copy non-empty lstStyle elements from layout placeholders to slide placeholders.
+
+    When python-pptx clones a placeholder from a layout to a slide, the slide
+    placeholder's <a:lstStyle/> is always empty.  PowerPoint resolves text colour
+    by walking up the inheritance chain: slide → layout → slide master.  If the
+    slide master's bodyStyle declares a light (bg1) body text colour (intended for
+    dark-background layouts), text on light-background slides becomes invisible.
+
+    Copying the layout's lstStyle explicitly into the slide placeholder ensures the
+    correct colour is present on the slide itself and is not overridden by the master.
+    """
+    def _ph_idx(shape) -> int | None:
+        """Return placeholder idx, or None if shape is not a placeholder."""
+        try:
+            return shape.placeholder_format.idx
+        except (ValueError, AttributeError):
+            return None
+
+    # Build a map of idx → <a:lstStyle> from layout placeholder shapes
+    layout_styles: dict[int, etree._Element] = {}
+    for shape in layout.shapes:
+        idx = _ph_idx(shape)
+        if idx is None:
+            continue
+        lst = shape._element.find(f".//{{{_A}}}lstStyle")
+        if lst is not None and len(lst) > 0:
+            layout_styles[idx] = lst
+
+    if not layout_styles:
+        return
+
+    for shape in slide.shapes:
+        idx = _ph_idx(shape)
+        if idx is None or idx not in layout_styles:
+            continue
+        slide_lst = shape._element.find(f".//{{{_A}}}lstStyle")
+        if slide_lst is None:
+            continue
+        # Clear then deep-copy each child from the layout lstStyle
+        for child in list(slide_lst):
+            slide_lst.remove(child)
+        for child in layout_styles[idx]:
+            slide_lst.append(copy.deepcopy(child))
 
 
 def render_deck(deck: DeckFile, template_path: Path, output_path: Path) -> None:
@@ -96,6 +149,7 @@ def render_deck(deck: DeckFile, template_path: Path, output_path: Path) -> None:
         layout = inspection.get_layout(layout_name)
         pptx_slide = prs.slides.add_slide(layout)
         _rename_slide_placeholders(pptx_slide, slide_model.type)
+        _copy_layout_lstStyles(pptx_slide, layout)
 
         renderer = SLIDE_RENDERERS[slide_model.type]
         renderer(slide_model, pptx_slide)

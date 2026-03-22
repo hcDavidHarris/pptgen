@@ -1,0 +1,27 @@
+deck:
+  title: Engineering Risks and Blockers
+  template: executive_brief_v1
+  author: Platform Engineering
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title
+    title: Engineering Risks and Blockers
+    subtitle: Delivery Risk Review
+
+  - type: bullets
+    id: risks
+    title: Top Risks
+    bullets:
+      - Template creation remains manual
+      - Example drift risk
+      - ADO integration not yet implemented
+
+  - type: bullets
+    id: blockers
+    title: Current Blockers
+    bullets:
+      - Missing template validator
+      - Workspace workflow still being defined

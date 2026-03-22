@@ -1,8 +1,8 @@
 """Create conformant pptgen .pptx template files.
 
-Generates both registered templates:
-  - templates/executive_brief_v1/template.pptx
-  - templates/ops_review_v1/template.pptx
+Reads every entry in templates/registry.yaml and generates the .pptx file at
+the path each entry declares.  Adding a new template to the registry is the
+only change required — this script needs no edits.
 
 Source
 ------
@@ -11,7 +11,7 @@ It already contains all six canonical layouts with the correct pptgen shape name
 This script:
   1. Converts the .potx to a loadable .pptx (content-type fix in the zip).
   2. Strips the three sample slides so the output is a blank-slide base.
-  3. Saves the result to both registered template paths.
+  3. Saves one copy per registered template path.
 
 No layout renaming or shape injection is needed — the source template already
 follows the Template Authoring Standard.
@@ -31,11 +31,7 @@ from pptx import Presentation
 
 _REPO_ROOT = Path(__file__).parent.parent
 _SOURCE_POTX = _REPO_ROOT / "template" / "HC_Powerpoint_Template_with_pptgen_placeholders.potx"
-
-_TARGETS = [
-    _REPO_ROOT / "templates" / "executive_brief_v1" / "template.pptx",
-    _REPO_ROOT / "templates" / "ops_review_v1" / "template.pptx",
-]
+_REGISTRY_PATH = _REPO_ROOT / "templates" / "registry.yaml"
 
 _R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
@@ -83,12 +79,25 @@ def create_template(output_path: Path, pptx_bytes: bytes) -> None:
 
 
 if __name__ == "__main__":
+    import sys
+    import yaml
+
     if not _SOURCE_POTX.exists():
         raise SystemExit(f"Source template not found: {_SOURCE_POTX}")
+    if not _REGISTRY_PATH.exists():
+        raise SystemExit(f"Registry not found: {_REGISTRY_PATH}")
+
+    with open(_REGISTRY_PATH) as f:
+        registry_data = yaml.safe_load(f)
+
+    entries = registry_data.get("templates", [])
+    if not entries:
+        raise SystemExit("No templates found in registry.")
 
     pptx_bytes = _potx_to_pptx_bytes(_SOURCE_POTX)
 
-    for target in _TARGETS:
+    for entry in entries:
+        target = _REPO_ROOT / entry["path"]
         create_template(target, pptx_bytes)
 
-    print("Done.")
+    print(f"Done. {len(entries)} template(s) created.")

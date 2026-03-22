@@ -1,0 +1,40 @@
+deck:
+  title: Weekly Delivery Update
+  template: ops_review_v1
+  author: Platform Engineering
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title
+    title: Weekly Engineering Delivery Update
+    subtitle: Platform Team Review
+
+  - type: bullets
+    id: highlights
+    title: Weekly Highlights
+    bullets:
+      - 4 platform features completed
+      - Renderer stabilized
+      - Example library expanded
+
+  - type: bullets
+    id: blockers
+    title: Current Blockers
+    bullets:
+      - Template dependency still manual
+      - CLI ergonomics still improving
+
+  - type: metric_summary
+    id: metrics
+    title: Delivery Metrics
+    metrics:
+      - label: Features Completed
+        value: "4"
+      - label: Active Stories
+        value: "18"
+      - label: Blocked Items
+        value: "2"
+      - label: Weekly Completion
+        value: "82%"

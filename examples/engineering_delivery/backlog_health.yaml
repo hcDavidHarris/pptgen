@@ -1,0 +1,25 @@
+deck:
+  title: Backlog Health
+  template: executive_brief_v1
+  author: Platform Engineering
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title
+    title: Backlog Health
+    subtitle: Engineering Intake Review
+
+  - type: metric_summary
+    id: backlog_metrics
+    title: Backlog Metrics
+    metrics:
+      - label: Open Features
+        value: "12"
+      - label: Active Stories
+        value: "34"
+      - label: Tasks Completed
+        value: "27"
+      - label: Blocked Items
+        value: "3"

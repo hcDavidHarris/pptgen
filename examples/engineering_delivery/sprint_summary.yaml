@@ -1,0 +1,37 @@
+deck:
+  title: Sprint Summary
+  template: ops_review_v1
+  author: Platform Engineering
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title
+    title: Sprint Summary
+    subtitle: Current Sprint Progress
+
+  - type: section
+    id: section1
+    section_title: Sprint Status
+
+  - type: bullets
+    id: highlights
+    title: Sprint Highlights
+    bullets:
+      - 6 user stories completed
+      - Renderer hardening completed
+      - Documentation improvements shipped
+
+  - type: metric_summary
+    id: metrics
+    title: Sprint Metrics
+    metrics:
+      - label: Stories Completed
+        value: "6"
+      - label: Stories In Progress
+        value: "4"
+      - label: Blocked Items
+        value: "1"
+      - label: Sprint Completion
+        value: "78%"

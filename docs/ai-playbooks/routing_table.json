@@ -1,0 +1,112 @@
+{
+  "version": "1.0",
+  "routing_table_name": "pptgen_ai_routing_table",
+  "owner": "Analytics / DevOps Platform Team",
+  "routes": [
+    {
+      "route_id": "meeting_notes_to_eos_rocks",
+      "input_type": [
+        "meeting_notes",
+        "leadership_summary",
+        "quarterly_planning_notes"
+      ],
+      "description": "Convert leadership or meeting notes into an EOS rocks deck.",
+      "playbook": "docs/ai-playbooks/meeting-notes-to-eos-rocks.md",
+      "example_pattern": "examples/eos/eos_rocks.yaml",
+      "recommended_skill": "generate_pptgen_deck_yaml",
+      "output_yaml": "workspace/decks/eos_rocks.yaml",
+      "follow_up_steps": [
+        "pptgen validate --input workspace/decks/eos_rocks.yaml",
+        "pptgen build --input workspace/decks/eos_rocks.yaml"
+      ],
+      "tags": [
+        "eos",
+        "leadership",
+        "meeting-notes"
+      ]
+    },
+    {
+      "route_id": "ado_summary_to_weekly_delivery",
+      "input_type": [
+        "ado_export_summary",
+        "sprint_summary",
+        "delivery_status_summary",
+        "backlog_summary"
+      ],
+      "description": "Convert Azure DevOps delivery summaries into a weekly delivery deck.",
+      "playbook": "docs/ai-playbooks/ado-summary-to-weekly-delivery.md",
+      "example_pattern": "examples/engineering_delivery/weekly_delivery_update.yaml",
+      "recommended_skill": "generate_pptgen_deck_yaml",
+      "output_yaml": "workspace/decks/weekly_delivery_update.yaml",
+      "follow_up_steps": [
+        "pptgen validate --input workspace/decks/weekly_delivery_update.yaml",
+        "pptgen build --input workspace/decks/weekly_delivery_update.yaml"
+      ],
+      "tags": [
+        "ado",
+        "engineering-delivery",
+        "weekly-update"
+      ]
+    },
+    {
+      "route_id": "architecture_notes_to_adr_deck",
+      "input_type": [
+        "architecture_notes",
+        "adr_summary",
+        "design_review_notes",
+        "system_design_notes"
+      ],
+      "description": "Convert architecture notes into an ADR review presentation deck.",
+      "playbook": "docs/ai-playbooks/architecture-notes-to-adr-deck.md",
+      "example_pattern": "examples/architecture/adr_template.yaml",
+      "recommended_skill": "generate_pptgen_deck_yaml",
+      "output_yaml": "workspace/decks/adr_review.yaml",
+      "follow_up_steps": [
+        "pptgen validate --input workspace/decks/adr_review.yaml",
+        "pptgen build --input workspace/decks/adr_review.yaml"
+      ],
+      "tags": [
+        "architecture",
+        "adr",
+        "design-review"
+      ]
+    },
+    {
+      "route_id": "devops_metrics_to_scorecard",
+      "input_type": [
+        "devops_metrics",
+        "dora_metrics",
+        "cicd_metrics",
+        "reliability_metrics"
+      ],
+      "description": "Convert DevOps metrics into an engineering scorecard deck.",
+      "playbook": "docs/ai-playbooks/devops-metrics-to-scorecard.md",
+      "example_pattern": "examples/devops/devops_metrics.yaml",
+      "recommended_skill": "generate_pptgen_deck_yaml",
+      "output_yaml": "workspace/decks/devops_metrics.yaml",
+      "follow_up_steps": [
+        "pptgen validate --input workspace/decks/devops_metrics.yaml",
+        "pptgen build --input workspace/decks/devops_metrics.yaml"
+      ],
+      "tags": [
+        "devops",
+        "metrics",
+        "scorecard"
+      ]
+    }
+  ],
+  "routing_rules": [
+    "Match input to the closest route by input_type and tags.",
+    "Always use the referenced example_pattern as the primary structural template.",
+    "Generate YAML before rendering PowerPoint.",
+    "Validate YAML before build.",
+    "Prefer concise, presentation-friendly output."
+  ],
+  "default_behavior": {
+    "description": "If no route matches exactly, choose the closest example library and use generate_pptgen_deck_yaml to create a first draft YAML deck.",
+    "follow_up_steps": [
+      "pptgen validate --input <generated_yaml>",
+      "pptgen build --input <generated_yaml>"
+    ]
+  }
+}

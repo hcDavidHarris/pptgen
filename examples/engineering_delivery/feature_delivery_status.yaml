@@ -1,0 +1,34 @@
+deck:
+  title: Feature Delivery Status
+  template: ops_review_v1
+  author: Platform Engineering
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title
+    title: Feature Delivery Status
+    subtitle: Feature Progress Overview
+
+  - type: bullets
+    id: completed
+    title: Completed Features
+    bullets:
+      - YAML loader and validation
+      - Template registry
+      - Rendering engine MVP
+
+  - type: bullets
+    id: in_progress
+    title: In Progress
+    bullets:
+      - Template compatibility validator
+      - CLI improvements
+
+  - type: bullets
+    id: planned
+    title: Planned Features
+    bullets:
+      - ADO workflow integration
+      - Workspace initialization command
