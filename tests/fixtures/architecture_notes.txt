@@ -1,0 +1,20 @@
+ADR-014: Event-Driven Messaging Platform
+
+Context:
+  Services currently share state via synchronous REST calls, creating tight coupling
+  and cascading failures during high-load periods.
+
+Decision Record:
+  Adopt Azure Service Bus for all inter-service events going forward.
+
+Options Considered:
+  Option A: Azure Service Bus — managed service, native RBAC, dead-letter queues.
+  Option B: Kafka on AKS — higher throughput ceiling but requires cluster management.
+
+Tradeoffs:
+  Service Bus has lower operational overhead.
+  Kafka offers higher throughput but team has no operational experience with it.
+
+Constraints:
+  Team has no Kafka operational experience.
+  Architecture review board must approve any new infrastructure additions.
