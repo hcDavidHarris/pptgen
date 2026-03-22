@@ -17,9 +17,9 @@ from pptgen.spec.presentation_spec import PresentationSpec
 # ---------------------------------------------------------------------------
 
 class TestStage2PipelineResult:
-    def test_stage_is_spec_generated(self):
+    def test_stage_is_deck_planned(self):
         result = generate_presentation("sprint backlog velocity work items blocked")
-        assert result.stage == "spec_generated"
+        assert result.stage == "deck_planned"
 
     def test_presentation_spec_is_populated(self):
         result = generate_presentation("sprint backlog velocity work items blocked")

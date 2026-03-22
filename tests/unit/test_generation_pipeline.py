@@ -52,9 +52,9 @@ class TestPipelineResultStructure:
         result = generate_presentation("sprint backlog velocity")
         assert isinstance(result, PipelineResult)
 
-    def test_stage_is_spec_generated(self):
+    def test_stage_is_deck_planned(self):
         result = generate_presentation("sprint backlog velocity")
-        assert result.stage == "spec_generated"
+        assert result.stage == "deck_planned"
 
     def test_playbook_id_is_string(self):
         result = generate_presentation("sprint backlog velocity")
