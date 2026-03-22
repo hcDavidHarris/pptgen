@@ -1,0 +1,239 @@
+version: 1.0
+catalog_name: pptgen_example_deck_catalog
+owner: Analytics / DevOps Platform Team
+
+libraries:
+  - name: eos
+    path: examples/eos
+    description: EOS leadership and operating cadence artifacts
+    decks:
+      - file: eos_scorecard.yaml
+        title: EOS Weekly Scorecard
+        purpose: Weekly leadership metrics review
+        slide_types:
+          - title
+          - section
+          - metric_summary
+          - bullets
+        recommended_template: ops_review_v1
+        audience:
+          - leadership
+          - operations
+      - file: eos_rocks.yaml
+        title: EOS Quarterly Rocks
+        purpose: Quarterly priorities and accountability review
+        slide_types:
+          - title
+          - section
+          - bullets
+          - two_column
+        recommended_template: ops_review_v1
+        audience:
+          - leadership
+          - management
+      - file: eos_issues_list.yaml
+        title: EOS Issues List
+        purpose: IDS and issue prioritization review
+        slide_types:
+          - title
+          - section
+          - bullets
+        recommended_template: ops_review_v1
+        audience:
+          - leadership
+          - management
+      - file: eos_vto.yaml
+        title: EOS Vision / Traction Organizer
+        purpose: Vision and strategic direction alignment
+        slide_types:
+          - title
+          - section
+          - bullets
+          - two_column
+        recommended_template: executive_brief_v1
+        audience:
+          - leadership
+          - strategy
+      - file: eos_quarterly_review.yaml
+        title: EOS Quarterly Review
+        purpose: Review traction, lessons learned, and next quarter priorities
+        slide_types:
+          - title
+          - section
+          - metric_summary
+          - bullets
+        recommended_template: executive_brief_v1
+        audience:
+          - leadership
+          - operations
+
+  - name: devops
+    path: examples/devops
+    description: DevOps Handbook inspired engineering delivery artifacts
+    decks:
+      - file: devops_three_ways.yaml
+        title: DevOps Three Ways
+        purpose: Explain foundational DevOps principles
+        slide_types:
+          - title
+          - bullets
+        recommended_template: ops_review_v1
+        audience:
+          - engineering
+          - platform
+      - file: devops_metrics.yaml
+        title: DevOps Performance Metrics
+        purpose: Present DORA metrics and delivery performance
+        slide_types:
+          - title
+          - metric_summary
+        recommended_template: ops_review_v1
+        audience:
+          - engineering
+          - leadership
+      - file: devops_pipeline.yaml
+        title: DevOps Deployment Pipeline
+        purpose: Explain CI/CD pipeline architecture
+        slide_types:
+          - title
+          - image_caption
+        recommended_template: architecture_overview_v1
+        audience:
+          - engineering
+          - architecture
+      - file: devops_transformation.yaml
+        title: DevOps Transformation Roadmap
+        purpose: Present phased transformation plan
+        slide_types:
+          - title
+          - two_column
+        recommended_template: executive_brief_v1
+        audience:
+          - engineering
+          - leadership
+      - file: devops_experiment_review.yaml
+        title: DevOps Experiment Review
+        purpose: Summarize improvement experiments and results
+        slide_types:
+          - title
+          - bullets
+        recommended_template: ops_review_v1
+        audience:
+          - engineering
+          - platform
+
+  - name: team_topologies
+    path: examples/team_topologies
+    description: Team Topologies inspired organization and platform team artifacts
+    decks:
+      - file: team_types.yaml
+        title: Team Topologies - Team Types
+        purpose: Explain canonical team types
+        slide_types:
+          - title
+          - bullets
+        recommended_template: architecture_overview_v1
+        audience:
+          - leadership
+          - engineering
+      - file: team_interaction_modes.yaml
+        title: Team Topologies - Interaction Modes
+        purpose: Explain interaction models between teams
+        slide_types:
+          - title
+          - two_column
+        recommended_template: architecture_overview_v1
+        audience:
+          - leadership
+          - engineering
+      - file: platform_team_model.yaml
+        title: Platform Team Model
+        purpose: Explain shared platform support model
+        slide_types:
+          - title
+          - image_caption
+        recommended_template: architecture_overview_v1
+        audience:
+          - platform
+          - leadership
+      - file: cognitive_load.yaml
+        title: Managing Cognitive Load
+        purpose: Highlight cognitive load design principles
+        slide_types:
+          - title
+          - bullets
+        recommended_template: executive_brief_v1
+        audience:
+          - leadership
+          - platform
+      - file: organization_design.yaml
+        title: Organization Design
+        purpose: Present target org and team structure
+        slide_types:
+          - title
+          - image_caption
+        recommended_template: executive_brief_v1
+        audience:
+          - leadership
+          - strategy
+
+  - name: architecture
+    path: examples/architecture
+    description: Architecture review and ADR presentation artifacts
+    decks:
+      - file: adr_template.yaml
+        title: Architecture Decision Record
+        purpose: Present ADR context, decision, and consequences
+        slide_types:
+          - title
+          - section
+          - bullets
+        recommended_template: architecture_overview_v1
+        audience:
+          - architecture
+          - engineering
+      - file: architecture_review.yaml
+        title: Architecture Review
+        purpose: Review architecture principles and diagrams
+        slide_types:
+          - title
+          - section
+          - image_caption
+          - bullets
+        recommended_template: architecture_overview_v1
+        audience:
+          - architecture
+          - engineering
+      - file: platform_architecture.yaml
+        title: Platform Architecture Overview
+        purpose: Explain platform capabilities and architecture
+        slide_types:
+          - title
+          - image_caption
+          - bullets
+        recommended_template: architecture_overview_v1
+        audience:
+          - platform
+          - architecture
+      - file: system_context.yaml
+        title: System Context
+        purpose: Present system actors and external interactions
+        slide_types:
+          - title
+          - image_caption
+          - bullets
+        recommended_template: architecture_overview_v1
+        audience:
+          - architecture
+          - engineering
+      - file: technology_selection.yaml
+        title: Technology Selection Review
+        purpose: Compare alternatives and present a selection decision
+        slide_types:
+          - title
+          - two_column
+          - bullets
+        recommended_template: architecture_overview_v1
+        audience:
+          - architecture
+          - leadership

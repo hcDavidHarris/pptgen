@@ -1,0 +1,26 @@
+{
+  "version": "1.0",
+  "catalog_name": "pptgen_example_deck_catalog",
+  "libraries": [
+    {
+      "name": "eos",
+      "path": "examples/eos",
+      "deck_count": 5
+    },
+    {
+      "name": "devops",
+      "path": "examples/devops",
+      "deck_count": 5
+    },
+    {
+      "name": "team_topologies",
+      "path": "examples/team_topologies",
+      "deck_count": 5
+    },
+    {
+      "name": "architecture",
+      "path": "examples/architecture",
+      "deck_count": 5
+    }
+  ]
+}

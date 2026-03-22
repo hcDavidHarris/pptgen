@@ -1,0 +1,30 @@
+# This deck parses successfully (all fields are structurally valid) but
+# fails semantic validation:
+#   - deck.template is not registered in the registry
+#   - metric_summary has 5 metrics (exceeds Phase 1 maximum of 4)
+#
+# Used by validator unit tests that assert ValidationResult.valid == False.
+
+deck:
+  title: Invalid Deck For Testing
+  template: nonexistent_template_v1
+  author: Test Author
+
+slides:
+  - type: title
+    title: Invalid Deck
+    subtitle: For Testing Only
+
+  - type: metric_summary
+    title: Too Many Metrics
+    metrics:
+      - label: Metric One
+        value: "1"
+      - label: Metric Two
+        value: "2"
+      - label: Metric Three
+        value: "3"
+      - label: Metric Four
+        value: "4"
+      - label: Metric Five
+        value: "5"

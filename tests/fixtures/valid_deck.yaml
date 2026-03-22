@@ -1,0 +1,52 @@
+deck:
+  title: Platform Operations Review
+  template: ops_review_v1
+  author: Test Author
+  version: "1.0"
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: Platform Operations Review
+    subtitle: Q1 Update
+
+  - type: section
+    id: highlights_section
+    section_title: Highlights
+    section_subtitle: Key outcomes this quarter
+
+  - type: bullets
+    id: key_highlights
+    title: Key Highlights
+    bullets:
+      - Platform stability improved across core workflows
+      - Reporting automation reduced manual effort
+      - Adoption increased across partner teams
+
+  - type: two_column
+    id: comparison_slide
+    title: Before and After
+    left_content:
+      - Manual slide creation
+      - Inconsistent formatting
+    right_content:
+      - YAML-driven generation
+      - Consistent templates
+
+  - type: metric_summary
+    id: kpi_slide
+    title: KPI Snapshot
+    metrics:
+      - label: Success Rate
+        value: "99.2%"
+      - label: Manual Effort Reduced
+        value: "40%"
+      - label: Active Teams
+        value: "14"
+
+  - type: image_caption
+    id: arch_diagram
+    title: Platform Architecture
+    image_path: assets/architecture.png
+    caption: pptgen system architecture overview

@@ -1,0 +1,51 @@
+deck:
+  title: EOS Weekly Scorecard
+  template: ops_review_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: EOS Weekly Scorecard
+    subtitle: Leadership Team Metrics Review
+
+  - type: section
+    id: scorecard_section
+    section_title: Weekly Scorecard
+    section_subtitle: Key measurable indicators
+
+  - type: metric_summary
+    id: core_metrics_1
+    title: Core Business Metrics
+    metrics:
+      - label: Revenue
+        value: "$1.2M"
+      - label: Gross Margin
+        value: "42%"
+      - label: Customer Satisfaction
+        value: "94%"
+      - label: Uptime
+        value: "99.98%"
+
+  - type: metric_summary
+    id: core_metrics_2
+    title: Operational Metrics
+    metrics:
+      - label: New Opportunities
+        value: "18"
+      - label: Tickets Closed
+        value: "1,043"
+      - label: On-Time Delivery
+        value: "96%"
+      - label: Churn
+        value: "1.1%"
+
+  - type: bullets
+    id: scorecard_takeaways
+    title: Leadership Takeaways
+    bullets:
+      - Revenue and satisfaction remain above target
+      - Delivery performance is strong but slightly below stretch goal
+      - Churn remains low and stable

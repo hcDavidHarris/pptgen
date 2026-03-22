@@ -1,0 +1,18 @@
+deck:
+  title: Managing Cognitive Load
+  template: executive_brief_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: Cognitive Load in Teams
+
+  - type: bullets
+    id: cognitive_load
+    title: Cognitive Load Considerations
+    bullets:
+      - Limit context switching across services
+      - Reduce operational complexity
+      - Standardize platform capabilities
+      - Support developer self-service

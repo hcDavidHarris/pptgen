@@ -244,10 +244,24 @@ RIGHT_CONTENT
 Required placeholders:
 
 TITLE\
-METRIC_1_VALUE\
 METRIC_1_LABEL\
+METRIC_1_VALUE\
+METRIC_2_LABEL\
 METRIC_2_VALUE\
-METRIC_2_LABEL
+METRIC_3_LABEL\
+METRIC_3_VALUE\
+METRIC_4_LABEL\
+METRIC_4_VALUE
+
+All 9 placeholders must be present in the layout regardless of how many metrics
+a given deck uses. The renderer populates occupied positions and clears the rest.
+Templates must not define partial or conditional placeholder sets.
+
+Recommended layout: arrange the 4 metric pairs in a **2×2 grid** below the title.
+Each pair positions `METRIC_N_VALUE` prominently above `METRIC_N_LABEL`.
+
+No `METRIC_N_UNIT` placeholder is defined. Units are appended to the value
+string by the renderer before population.
 
 ------------------------------------------------------------------------
 

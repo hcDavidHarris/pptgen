@@ -1,0 +1,19 @@
+deck:
+  title: Team Topologies - Interaction Modes
+  template: architecture_overview_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: Team Interaction Modes
+
+  - type: two_column
+    id: interaction_modes
+    title: Interaction Models
+    left_content:
+      - Collaboration
+      - Facilitation
+    right_content:
+      - X-as-a-Service
+      - Temporary enabling

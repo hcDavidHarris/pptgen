@@ -1,0 +1,18 @@
+deck:
+  title: Team Topologies - Team Types
+  template: architecture_overview_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: Team Topologies Overview
+
+  - type: bullets
+    id: team_types
+    title: Team Types
+    bullets:
+      - Stream-Aligned Teams
+      - Platform Teams
+      - Enabling Teams
+      - Complicated Subsystem Teams

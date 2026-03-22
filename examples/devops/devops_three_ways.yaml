@@ -1,0 +1,18 @@
+deck:
+  title: DevOps Three Ways
+  template: ops_review_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: The Three Ways of DevOps
+    subtitle: Foundational DevOps Principles
+
+  - type: bullets
+    id: three_ways
+    title: The Three Ways
+    bullets:
+      - Flow: accelerate value delivery from development to operations
+      - Feedback: amplify feedback loops across the system
+      - Continual Learning: foster experimentation and learning

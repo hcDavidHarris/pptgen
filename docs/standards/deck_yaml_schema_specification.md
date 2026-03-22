@@ -238,22 +238,48 @@ title: string
 metrics: array[object]
 ```
 
+Constraints:
+
+-   `metrics` array must contain **1 to 4 items**
+-   Arrays with 0 items or more than 4 items are validation errors
+
 Metric object schema:
 
-  Field   Type     Description
-  ------- -------- ---------------
-  label   string   Metric name
-  value   string   Metric value
-  unit    string   Optional unit
+  Field   Type     Required   Description
+  ------- -------- ---------- --------------------------------------------------
+  label   string   Yes        Metric name. Recommended maximum 40 characters.
+  value   string   Yes        Metric value. Must be a quoted YAML string.
+  unit    string   No         Optional unit. Concatenated directly onto value.
+
+Unit rendering rule:
+
+When `unit` is present, the renderer concatenates `value` and `unit` directly
+with no separator. The author controls spacing by including it in the unit string.
+
+Examples:
+
+  YAML value   YAML unit   Rendered text
+  ------------ ----------- --------------
+  "99.9"       "%"         99.9%
+  "450"        " ms"       450 ms
+  "1.2M"       (absent)    1.2M
+
+`value` must always be authored as a quoted YAML string. The renderer treats
+it as opaque display text and does not parse it numerically.
 
 Example:
 
 ``` yaml
-metrics:
-  - label: Success Rate
-    value: "98%"
-  - label: Requests
-    value: "1.2M"
+- type: metric_summary
+  title: KPI Snapshot
+  metrics:
+    - label: Success Rate
+      value: "99.9"
+      unit: "%"
+    - label: Monthly Requests
+      value: "1.2M"
+    - label: Delivery Reliability
+      value: "99.2%"
 ```
 
 ------------------------------------------------------------------------

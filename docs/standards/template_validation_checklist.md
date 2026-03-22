@@ -108,11 +108,15 @@ Checklist:
 
 ## 3. Placeholder Validation
 
-Example placeholders:
+Required placeholders by slide type:
 
 Title Slide\
 TITLE\
 SUBTITLE
+
+Section Slide\
+SECTION_TITLE\
+SECTION_SUBTITLE (optional)
 
 Bullet Slide\
 TITLE\
@@ -123,9 +127,31 @@ TITLE\
 LEFT_CONTENT\
 RIGHT_CONTENT
 
+Metric Summary Slide\
+TITLE\
+METRIC_1_LABEL\
+METRIC_1_VALUE\
+METRIC_2_LABEL\
+METRIC_2_VALUE\
+METRIC_3_LABEL\
+METRIC_3_VALUE\
+METRIC_4_LABEL\
+METRIC_4_VALUE
+
+All 9 metric summary placeholders must be present. Templates with fewer than
+all 8 metric placeholders (METRIC_1 through METRIC_4, LABEL and VALUE for each)
+will fail validation. There is no METRIC_N_UNIT placeholder.
+
+Image Caption Slide\
+TITLE\
+IMAGE\
+CAPTION
+
 Checklist:
 
-☐ All required placeholders exist\
+☐ All required placeholders exist for each supported slide type\
+☐ Metric Summary Layout includes all 9 required placeholders (TITLE + METRIC_1 through METRIC_4 LABEL/VALUE pairs)\
+☐ No METRIC_N_UNIT placeholder defined (unit handling is a renderer concern)\
 ☐ Placeholder names follow UPPERCASE_SNAKE_CASE\
 ☐ Placeholder names are descriptive\
 ☐ Placeholder names are not duplicated\

@@ -1,0 +1,47 @@
+deck:
+  title: EOS Vision / Traction Organizer
+  template: executive_brief_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: EOS Vision / Traction Organizer
+    subtitle: pptgen Platform Direction
+
+  - type: section
+    id: values_section
+    section_title: Core Values
+
+  - type: bullets
+    id: core_values
+    title: Core Values
+    bullets:
+      - Lead with curiosity
+      - Build for clarity and repeatability
+      - Favor disciplined standards over improvisation
+      - Use AI to accelerate, not replace, judgment
+
+  - type: section
+    id: focus_section
+    section_title: Core Focus
+
+  - type: two_column
+    id: focus
+    title: Core Focus and Niche
+    left_content:
+      - Purpose: turn structured content into presentation-ready artifacts
+      - Mission: reduce manual deck creation across teams
+    right_content:
+      - Niche: YAML-driven, template-governed deck generation
+      - Advantage: AI-assisted creation with deterministic rendering
+
+  - type: bullets
+    id: long_term_vision
+    title: Long-Term Vision
+    bullets:
+      - Become the standard internal system for recurring presentation artifacts
+      - Support leadership updates, scorecards, architecture decks, and reviews
+      - Create a reusable pattern for AI-assisted business deliverables

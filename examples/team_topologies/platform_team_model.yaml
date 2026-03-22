@@ -1,0 +1,14 @@
+deck:
+  title: Platform Team Model
+  template: architecture_overview_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: Platform Team Model
+
+  - type: image_caption
+    id: platform_model
+    title: Platform Team Architecture
+    caption: Platform team provides shared services for stream-aligned teams

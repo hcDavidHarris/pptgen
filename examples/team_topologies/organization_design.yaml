@@ -1,0 +1,14 @@
+deck:
+  title: Organization Design
+  template: executive_brief_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: Platform Organization Design
+
+  - type: image_caption
+    id: org_model
+    title: Team Structure
+    caption: Stream-aligned teams supported by a central platform team

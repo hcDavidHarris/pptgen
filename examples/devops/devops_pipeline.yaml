@@ -1,0 +1,15 @@
+deck:
+  title: DevOps Deployment Pipeline
+  template: architecture_overview_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: Deployment Pipeline
+    subtitle: Continuous Delivery Architecture
+
+  - type: image_caption
+    id: pipeline_diagram
+    title: Pipeline Overview
+    caption: Build → Test → Security Scan → Deploy → Monitor

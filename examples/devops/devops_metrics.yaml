@@ -1,0 +1,23 @@
+deck:
+  title: DevOps Performance Metrics
+  template: ops_review_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: DevOps Performance Metrics
+    subtitle: DORA Metrics Overview
+
+  - type: metric_summary
+    id: dora_metrics
+    title: DORA Metrics
+    metrics:
+      - label: Deployment Frequency
+        value: "24/day"
+      - label: Lead Time
+        value: "42 min"
+      - label: Change Failure Rate
+        value: "3%"
+      - label: MTTR
+        value: "17 min"

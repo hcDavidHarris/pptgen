@@ -1,0 +1,50 @@
+# pptgen Template Registry
+# Version: 1.0
+#
+# This file is the authoritative list of registered pptgen templates.
+# The renderer resolves template IDs through this registry.
+#
+# Each entry must include:
+#   template_id            unique identifier (matches the folder name)
+#   version                semantic version string
+#   owner                  primary owner team
+#   backup_owner           secondary owner team (optional)
+#   status                 draft | review | approved | deprecated | archived
+#   path                   relative path to the .pptx template file
+#   supported_slide_types  list of slide types this template supports
+#
+# Only templates with status: approved may be used for production rendering.
+#
+# Phase 1 note: the .pptx files referenced by `path` are not yet created.
+# The registry is read by the validator to confirm template_id references.
+# The renderer (Phase 2) will open the files at the declared paths.
+
+templates:
+
+  - template_id: executive_brief_v1
+    version: "1.0"
+    owner: Analytics Services
+    backup_owner: DevOps Platform Team
+    status: approved
+    path: templates/executive_brief_v1/template.pptx
+    supported_slide_types:
+      - title
+      - section
+      - bullets
+      - two_column
+      - metric_summary
+      - image_caption
+
+  - template_id: ops_review_v1
+    version: "1.0"
+    owner: Analytics Services
+    backup_owner: DevOps Platform Team
+    status: approved
+    path: templates/ops_review_v1/template.pptx
+    supported_slide_types:
+      - title
+      - section
+      - bullets
+      - two_column
+      - metric_summary
+      - image_caption

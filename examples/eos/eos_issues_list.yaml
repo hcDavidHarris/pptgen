@@ -1,0 +1,42 @@
+deck:
+  title: EOS Issues List
+  template: ops_review_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: EOS Issues List
+    subtitle: Current Issues for IDS
+
+  - type: section
+    id: issues_section
+    section_title: Current Issues
+
+  - type: bullets
+    id: top_issues
+    title: Priority Issues
+    bullets:
+      - Template placeholder consistency is not yet fully validated
+      - YAML schema adoption may vary across teams
+      - PowerPoint template creation remains a manual dependency
+      - Metrics contract must remain stable across future versions
+      - Contributor onboarding process is not yet formalized
+
+  - type: bullets
+    id: decision_needs
+    title: Decisions Needed
+    bullets:
+      - Confirm MVP template ownership model
+      - Decide when to introduce additional slide types
+      - Determine how EOS scorecards will be standardized
+
+  - type: bullets
+    id: next_actions
+    title: Immediate Next Actions
+    bullets:
+      - Build and validate one conformant MVP template
+      - Complete Phase 1 engine scaffolding
+      - Publish contributor guide and examples

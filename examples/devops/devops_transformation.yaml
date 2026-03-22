@@ -1,0 +1,21 @@
+deck:
+  title: DevOps Transformation Roadmap
+  template: executive_brief_v1
+  author: Engineering Leadership
+
+slides:
+  - type: title
+    id: title
+    title: DevOps Transformation Roadmap
+
+  - type: two_column
+    id: roadmap
+    title: Transformation Phases
+    left_content:
+      - Standardize CI/CD pipelines
+      - Automate infrastructure provisioning
+      - Improve monitoring coverage
+    right_content:
+      - Reduce deployment lead time
+      - Increase deployment frequency
+      - Improve incident response

@@ -1,0 +1,58 @@
+deck:
+  title: EOS Quarterly Review
+  template: executive_brief_v1
+  author: David Harris
+  version: 1.0
+  status: draft
+
+slides:
+  - type: title
+    id: title_slide
+    title: EOS Quarterly Review
+    subtitle: Traction, Learnings, and Next Quarter Focus
+
+  - type: section
+    id: quarter_results_section
+    section_title: Quarter Results
+
+  - type: metric_summary
+    id: quarter_metrics
+    title: Quarter-End Snapshot
+    metrics:
+      - label: Rocks Completed
+        value: "8/10"
+      - label: Adoption Rate
+        value: "67%"
+      - label: Time Saved
+        value: "52%"
+      - label: Reliability
+        value: "99.4%"
+
+  - type: bullets
+    id: wins
+    title: Major Wins
+    bullets:
+      - Documentation foundation completed
+      - Claude skill workflow established
+      - Example deck library published
+      - MVP scope narrowed to a practical first slice
+
+  - type: bullets
+    id: lessons_learned
+    title: Lessons Learned
+    bullets:
+      - Contract decisions must be locked before renderer implementation
+      - Template design is a critical delivery dependency
+      - Example-driven adoption is more effective than documentation alone
+
+  - type: section
+    id: next_quarter_section
+    section_title: Next Quarter Focus
+
+  - type: bullets
+    id: next_quarter_rocks
+    title: Next Quarter Priorities
+    bullets:
+      - Complete MVP renderer and template validation
+      - Pilot EOS deck generation with one leadership team
+      - Expand template catalog based on real usage

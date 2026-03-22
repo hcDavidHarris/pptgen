@@ -1,0 +1,27 @@
+# Test-only template registry.
+# Used by unit tests that need a registry without depending on the real
+# templates/registry.yaml file.
+
+templates:
+
+  - template_id: ops_review_v1
+    version: "1.0"
+    owner: Test Team
+    status: approved
+    path: templates/ops_review_v1/template.pptx
+    supported_slide_types:
+      - title
+      - section
+      - bullets
+      - two_column
+      - metric_summary
+      - image_caption
+
+  - template_id: draft_template_v1
+    version: "0.1"
+    owner: Test Team
+    status: draft
+    path: templates/draft_template_v1/template.pptx
+    supported_slide_types:
+      - title
+      - bullets

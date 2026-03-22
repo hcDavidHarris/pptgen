@@ -1,0 +1,18 @@
+deck:
+  title: DevOps Experiment Review
+  template: ops_review_v1
+  author: Platform Engineering
+
+slides:
+  - type: title
+    id: title
+    title: DevOps Experiment Review
+
+  - type: bullets
+    id: experiments
+    title: Recent Improvement Experiments
+    bullets:
+      - Introduced trunk-based development
+      - Automated integration tests
+      - Implemented deployment canaries
+      - Reduced manual release approvals

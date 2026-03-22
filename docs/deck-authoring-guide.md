@@ -79,12 +79,23 @@ Guidelines:
   title: KPI Snapshot
   metrics:
     - label: Success Rate
-      value: "98.4%"
+      value: "99.9"
+      unit: "%"
     - label: Monthly Requests
       value: "1.2M"
+    - label: Delivery Reliability
+      value: "99.2%"
 ```
 
-Use metric slides when presenting numerical summaries.
+Guidelines:
+
+• Maximum 4 metrics per slide
+• `value` must always be a quoted YAML string
+• `unit` is optional — when present, it is concatenated directly onto the value
+  Example: `value: "99.9"` + `unit: "%"` renders as `99.9%`
+  Example: `value: "450"` + `unit: " ms"` renders as `450 ms`
+• Keep labels concise — recommended maximum 40 characters
+• Use metric slides when presenting KPIs or numerical summaries
 
 ---
 
