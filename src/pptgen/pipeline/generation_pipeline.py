@@ -28,7 +28,7 @@ from ..errors import PptgenError as _PptgenError
 from ..input_router import InputRouterError, route_input
 from ..loaders.yaml_loader import parse_deck
 from ..playbook_engine import PlaybookNotFoundError, execute_playbook_full, get_default_template
-from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES, UnknownStrategyError
+from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES, ExecutionMode, UnknownStrategyError
 from ..planner import SlidePlan, plan_slides
 from ..registry.registry import TemplateRegistry
 from ..render import render_deck
@@ -76,7 +76,7 @@ def generate_presentation(
     input_text: str,
     output_path: Path | None = None,
     template_id: str | None = None,
-    mode: str = DETERMINISTIC,
+    mode: str | ExecutionMode = DETERMINISTIC,
 ) -> PipelineResult:
     """Entry point for the presentation generation pipeline.
 
@@ -85,6 +85,7 @@ def generate_presentation(
         output_path: If provided, the deck is rendered to this path.
         template_id: Optional template override.  Must be a registered ID.
         mode:        Execution mode — ``"deterministic"`` (default) or ``"ai"``.
+                     Accepts either a plain string or an :class:`ExecutionMode` member.
 
     Returns:
         :class:`PipelineResult` with ``stage="rendered"`` or ``"deck_planned"``.
@@ -99,9 +100,12 @@ def generate_presentation(
             f"got {type(input_text).__name__!r}."
         )
 
-    if mode not in VALID_STRATEGIES:
+    # Normalise mode to a plain string for consistent comparison and storage.
+    mode_str: str = mode.value if isinstance(mode, ExecutionMode) else mode
+
+    if mode_str not in VALID_STRATEGIES:
         raise PipelineError(
-            f"Unknown mode '{mode}'.  "
+            f"Unknown mode '{mode_str}'.  "
             f"Valid modes: {', '.join(sorted(VALID_STRATEGIES))}."
         )
 
@@ -116,7 +120,7 @@ def generate_presentation(
         raise PipelineError(str(exc)) from exc
 
     try:
-        spec, exec_notes = execute_playbook_full(playbook_id, normalised, strategy=mode)
+        spec, exec_notes = execute_playbook_full(playbook_id, normalised, strategy=mode_str)
     except (PlaybookNotFoundError, UnknownStrategyError) as exc:
         raise PipelineError(str(exc)) from exc
 
@@ -139,7 +143,7 @@ def generate_presentation(
             stage="deck_planned",
             playbook_id=playbook_id,
             input_text=normalised,
-            mode=mode,
+            mode=mode_str,
             template_id=resolved_template,
             presentation_spec=spec,
             slide_plan=slide_plan,
@@ -153,7 +157,7 @@ def generate_presentation(
         stage="rendered",
         playbook_id=playbook_id,
         input_text=normalised,
-        mode=mode,
+        mode=mode_str,
         template_id=resolved_template,
         presentation_spec=spec,
         slide_plan=slide_plan,

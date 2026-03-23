@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
+from pptgen.ai.models import MockModel
 from pptgen.playbook_engine.ai_executor import (
     _build_prompt,
-    _mock_llm_call,
     _parse_spec,
     _synthesize_bullets,
     run,

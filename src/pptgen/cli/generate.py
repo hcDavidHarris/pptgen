@@ -22,7 +22,7 @@ from pathlib import Path
 import typer
 
 from ..pipeline import PipelineError, generate_presentation
-from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES
+from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES, ExecutionMode
 
 
 def generate_command(
@@ -60,7 +60,9 @@ def generate_command(
 ) -> None:
     """Generate a PowerPoint presentation from a raw text input file."""
     # --- Validate mode early ---
-    if mode not in VALID_STRATEGIES:
+    try:
+        ExecutionMode(mode)
+    except ValueError:
         typer.echo(
             f"Error: unknown mode '{mode}'.  "
             f"Valid modes: {', '.join(sorted(VALID_STRATEGIES))}.",
