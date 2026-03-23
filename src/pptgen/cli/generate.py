@@ -5,7 +5,8 @@ the full Phase 4/5 generation pipeline.
 
 Usage::
 
-    pptgen generate <input_file> [--output <path>] [--template <id>] [--mode <mode>] [--debug]
+    pptgen generate <input_file> [--output <path>] [--template <id>] [--mode <mode>]
+                                 [--artifacts] [--artifacts-dir <path>] [--debug]
 
 Examples::
 
@@ -13,11 +14,14 @@ Examples::
     pptgen generate notes/sprint_summary.txt --mode ai
     pptgen generate notes/adr.txt --template architecture_overview_v1 --debug
     pptgen generate notes/meeting.txt --mode ai --output output/meeting_ai.pptx --debug
+    pptgen generate notes/meeting.txt --artifacts --output output/meeting.pptx --debug
+    pptgen generate notes/meeting.txt --artifacts --artifacts-dir my_artifacts/
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 import typer
 
@@ -31,13 +35,13 @@ def generate_command(
         help="Path to the raw text input file (meeting notes, sprint summary, ADR, etc.).",
         exists=False,  # We handle the missing-file error ourselves for a better message
     ),
-    output: Path | None = typer.Option(
+    output: Optional[Path] = typer.Option(
         None,
         "--output",
         "-o",
         help="Output .pptx path.  Defaults to output/<input_stem>.pptx.",
     ),
-    template: str | None = typer.Option(
+    template: Optional[str] = typer.Option(
         None,
         "--template",
         "-t",
@@ -51,6 +55,23 @@ def generate_command(
         "--mode",
         "-m",
         help="Execution mode: 'deterministic' (default) or 'ai'.",
+    ),
+    artifacts: bool = typer.Option(
+        False,
+        "--artifacts",
+        help=(
+            "Export intermediate pipeline artifacts (spec.json, slide_plan.json, "
+            "deck_definition.json) alongside the output file.  "
+            "Default location: <output_stem>.artifacts/ next to the .pptx."
+        ),
+    ),
+    artifacts_dir: Optional[Path] = typer.Option(
+        None,
+        "--artifacts-dir",
+        help=(
+            "Override the artifacts output directory.  "
+            "Implies --artifacts when provided."
+        ),
     ),
     debug: bool = typer.Option(
         False,
@@ -86,12 +107,15 @@ def generate_command(
         raise typer.Exit(code=1)
 
     # --- Determine output path ---
-    resolved_output: Path
-    if output is not None:
-        resolved_output = output
-    else:
-        safe_stem = input_file.stem.replace(" ", "_").replace("/", "_")
-        resolved_output = Path("output") / f"{safe_stem}.pptx"
+    safe_stem = input_file.stem.replace(" ", "_").replace("/", "_")
+    resolved_output: Path = output if output is not None else Path("output") / f"{safe_stem}.pptx"
+
+    # --- Resolve artifacts directory ---
+    resolved_artifacts_dir: Path | None = None
+    if artifacts_dir is not None:
+        resolved_artifacts_dir = artifacts_dir
+    elif artifacts:
+        resolved_artifacts_dir = resolved_output.parent / f"{resolved_output.stem}.artifacts"
 
     # --- Run pipeline ---
     try:
@@ -100,6 +124,7 @@ def generate_command(
             output_path=resolved_output,
             template_id=template,
             mode=mode,
+            artifacts_dir=resolved_artifacts_dir,
         )
     except PipelineError as exc:
         typer.echo(f"Error: {exc}", err=True)
@@ -115,6 +140,10 @@ def generate_command(
             typer.echo(f"slide_count : {result.slide_plan.slide_count}")
             typer.echo(f"slide_types : {result.slide_plan.planned_slide_types}")
         typer.echo(f"output_path : {result.output_path}")
+        if result.artifact_paths:
+            typer.echo(f"artifacts   : {resolved_artifacts_dir}")
+            for name, path in sorted(result.artifact_paths.items()):
+                typer.echo(f"  {name}: {path}")
         if result.notes:
             typer.echo(f"notes       : {result.notes}")
 

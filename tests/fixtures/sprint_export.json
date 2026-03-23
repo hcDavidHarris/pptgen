@@ -1,0 +1,49 @@
+{
+  "sprint": "Sprint 12",
+  "iteration": "2026-03-14 to 2026-03-28",
+  "team": "Platform Engineering",
+  "velocity": 38,
+  "story_points_committed": 42,
+  "story_points_completed": 38,
+  "blocked_count": 2,
+  "bugs": 3,
+  "pull_requests": 14,
+  "work_items": [
+    {
+      "id": 1001,
+      "title": "Implement OAuth login flow",
+      "type": "Feature",
+      "status": "Completed",
+      "story_points": 8
+    },
+    {
+      "id": 1002,
+      "title": "Fix regression in ingestion API",
+      "type": "Bug",
+      "status": "Completed",
+      "story_points": 3
+    },
+    {
+      "id": 1003,
+      "title": "ADO pipeline cleanup and refactor",
+      "type": "Feature",
+      "status": "Blocked",
+      "story_points": 8
+    },
+    {
+      "id": 1004,
+      "title": "Update backlog grooming process",
+      "type": "Task",
+      "status": "In Progress",
+      "story_points": 5
+    },
+    {
+      "id": 1005,
+      "title": "Release branch preparation",
+      "type": "Task",
+      "status": "Completed",
+      "story_points": 2
+    }
+  ],
+  "notes": "Strong sprint delivery. Two work items remain blocked pending infrastructure access."
+}

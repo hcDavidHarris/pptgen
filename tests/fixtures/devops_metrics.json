@@ -1,0 +1,16 @@
+{
+  "team": "Platform Engineering",
+  "period": "Q1 2026",
+  "dora_metrics": {
+    "deployment_frequency": "4 per day",
+    "lead_time_for_changes": "2 hours",
+    "change_failure_rate": "1.8%",
+    "mttr": "12 minutes"
+  },
+  "pipeline_health": {
+    "ci_pass_rate": "97.4%",
+    "deployment_pipeline": "green",
+    "rollbacks_this_quarter": 1
+  },
+  "notes": "Deployment frequency and MTTR are within elite DORA performance bands. Change failure rate slightly elevated — under investigation."
+}

@@ -1,0 +1,40 @@
+{
+  "notes": "",
+  "planned_slide_types": [
+    "title",
+    "section",
+    "bullets",
+    "section",
+    "bullets"
+  ],
+  "playbook_id": "meeting-notes-to-eos-rocks",
+  "section_count": 2,
+  "slide_count": 5,
+  "slides": [
+    {
+      "slide_type": "title",
+      "source_section_title": null,
+      "title": "Meeting Notes — Q3 Engineering Planning Session"
+    },
+    {
+      "slide_type": "section",
+      "source_section_title": "Key Points",
+      "title": "Key Points"
+    },
+    {
+      "slide_type": "bullets",
+      "source_section_title": "Key Points",
+      "title": "Key Points"
+    },
+    {
+      "slide_type": "section",
+      "source_section_title": "Context & Notes",
+      "title": "Context & Notes"
+    },
+    {
+      "slide_type": "bullets",
+      "source_section_title": "Context & Notes",
+      "title": "Context & Notes"
+    }
+  ]
+}

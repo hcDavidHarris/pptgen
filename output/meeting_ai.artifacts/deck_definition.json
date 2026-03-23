@@ -1,0 +1,49 @@
+{
+  "deck": {
+    "author": "Unknown",
+    "template": "ops_review_v1",
+    "title": "Meeting Notes — Q3 Engineering Planning Session",
+    "version": "1.0"
+  },
+  "slides": [
+    {
+      "subtitle": "Meeting Summary (AI)",
+      "title": "Meeting Notes — Q3 Engineering Planning Session",
+      "type": "title"
+    },
+    {
+      "id": "section_1",
+      "section_title": "Key Points",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Meeting Notes — Q3 Engineering Planning Session",
+        "Attendees: Sarah, James, Priya, Tom",
+        "Agenda:",
+        "Review Q2 delivery status",
+        "Set Q3 objectives",
+        "Identify blockers and action items"
+      ],
+      "id": "bullets_1_1",
+      "title": "Key Points",
+      "type": "bullets"
+    },
+    {
+      "id": "section_2",
+      "section_title": "Context & Notes",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Discussion:",
+        "Sprint velocity averaged 42 story points over the quarter",
+        "Two key features shipped on time; one delayed by external dependency",
+        "Team raised concern about integration pipeline reliability"
+      ],
+      "id": "bullets_2_1",
+      "title": "Context & Notes",
+      "type": "bullets"
+    }
+  ]
+}

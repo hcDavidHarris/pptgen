@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..artifacts import write_artifacts
 from ..errors import PptgenError as _PptgenError
 from ..input_router import InputRouterError, route_input
 from ..loaders.yaml_loader import parse_deck
@@ -70,6 +71,7 @@ class PipelineResult:
     deck_definition: dict[str, Any] | None = field(default=None)
     output_path: str | None = field(default=None)
     notes: str = field(default="")
+    artifact_paths: dict[str, str] | None = field(default=None)
 
 
 def generate_presentation(
@@ -77,6 +79,7 @@ def generate_presentation(
     output_path: Path | None = None,
     template_id: str | None = None,
     mode: str | ExecutionMode = DETERMINISTIC,
+    artifacts_dir: Path | None = None,
 ) -> PipelineResult:
     """Entry point for the presentation generation pipeline.
 
@@ -84,11 +87,18 @@ def generate_presentation(
         input_text:  Raw text to process.  Leading/trailing whitespace is stripped.
         output_path: If provided, the deck is rendered to this path.
         template_id: Optional template override.  Must be a registered ID.
-        mode:        Execution mode — ``"deterministic"`` (default) or ``"ai"``.
-                     Accepts either a plain string or an :class:`ExecutionMode` member.
+        mode:         Execution mode — ``"deterministic"`` (default) or ``"ai"``.
+                      Accepts either a plain string or an :class:`ExecutionMode` member.
+        artifacts_dir: If provided, write ``spec.json``, ``slide_plan.json``,
+                       and ``deck_definition.json`` to this directory after the
+                       deck is planned.  The directory is created if it does not
+                       exist.  When ``None`` (the default), no artifact files are
+                       written.
 
     Returns:
         :class:`PipelineResult` with ``stage="rendered"`` or ``"deck_planned"``.
+        ``PipelineResult.artifact_paths`` is populated when *artifacts_dir* is
+        provided.
 
     Raises:
         PipelineError: If *input_text* is not a string, *template_id* or *mode*
@@ -138,6 +148,20 @@ def generate_presentation(
         notes_parts.append(exec_notes)
     notes = "; ".join(notes_parts)
 
+    # Optional artifact export
+    artifact_paths: dict[str, str] | None = None
+    if artifacts_dir is not None:
+        try:
+            raw_paths = write_artifacts(
+                Path(artifacts_dir),
+                spec,
+                slide_plan,
+                deck_definition,
+            )
+            artifact_paths = {k: str(v) for k, v in raw_paths.items()}
+        except OSError as exc:
+            raise PipelineError(f"Artifact export failed: {exc}") from exc
+
     if output_path is None:
         return PipelineResult(
             stage="deck_planned",
@@ -149,6 +173,7 @@ def generate_presentation(
             slide_plan=slide_plan,
             deck_definition=deck_definition,
             notes=notes,
+            artifact_paths=artifact_paths,
         )
 
     _render(deck_definition, resolved_template, Path(output_path))
@@ -164,6 +189,7 @@ def generate_presentation(
         deck_definition=deck_definition,
         output_path=str(output_path),
         notes=notes,
+        artifact_paths=artifact_paths,
     )
 
 

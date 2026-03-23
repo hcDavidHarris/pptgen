@@ -1,0 +1,75 @@
+{
+  "deck": {
+    "author": "Unknown",
+    "template": "ops_review_v1",
+    "title": "Meeting Notes — Q3 Engineering Planning Session",
+    "version": "1.0"
+  },
+  "slides": [
+    {
+      "subtitle": "Meeting Notes",
+      "title": "Meeting Notes — Q3 Engineering Planning Session",
+      "type": "title"
+    },
+    {
+      "id": "section_1",
+      "section_title": "Agenda",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Review Q2 delivery status",
+        "Set Q3 objectives",
+        "Identify blockers and action items"
+      ],
+      "id": "bullets_1_1",
+      "title": "Agenda",
+      "type": "bullets"
+    },
+    {
+      "id": "section_2",
+      "section_title": "Discussion",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Sprint velocity averaged 42 story points over the quarter",
+        "Two key features shipped on time; one delayed by external dependency",
+        "Team raised concern about integration pipeline reliability"
+      ],
+      "id": "bullets_2_1",
+      "title": "Discussion",
+      "type": "bullets"
+    },
+    {
+      "id": "section_3",
+      "section_title": "Action Items",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Sarah to draft Q3 objectives by end of week",
+        "James to investigate pipeline flakiness and report findings",
+        "Priya to schedule follow-up meeting with product team",
+        "Tom to update the delivery scorecard template"
+      ],
+      "id": "bullets_3_1",
+      "title": "Action Items",
+      "type": "bullets"
+    },
+    {
+      "id": "section_4",
+      "section_title": "Decisions",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Move to bi-weekly retrospectives starting next sprint",
+        "Adopt new branching strategy for hotfixes"
+      ],
+      "id": "bullets_4_1",
+      "title": "Decisions",
+      "type": "bullets"
+    }
+  ]
+}

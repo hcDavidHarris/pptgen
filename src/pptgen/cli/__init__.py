@@ -5,6 +5,7 @@ Commands:
     pptgen validate --input deck.yaml
     pptgen list-templates
     pptgen generate <input_file> [--output <path>] [--debug]
+    pptgen ingest <connector_type> <input_file> [--debug]
     pptgen deck scaffold [--template <id>] [--output <path>]
     pptgen template inspect --template <id>
     pptgen example list [--library <name>]
@@ -25,6 +26,7 @@ from ..validators.deck_validator import validate_deck
 from .deck_scaffold import deck_app
 from .example_commands import example_app
 from .generate import generate_command
+from .ingest import ingest_command
 from .template_inspect import template_app
 from .workspace_init import workspace_app
 
@@ -42,6 +44,7 @@ app.add_typer(workspace_app, name="workspace")
 
 # Register top-level commands defined in sub-modules
 app.command("generate")(generate_command)
+app.command("ingest")(ingest_command)
 
 _REGISTRY_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "registry.yaml"
 

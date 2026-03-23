@@ -1,0 +1,13 @@
+Meeting: Sprint Review — Team Platform
+Date: 2026-03-22
+Attendees: Alice, Bob, Carol, David
+
+[00:00] Alice: Good morning everyone. Let's get started with the sprint review.
+[00:45] Bob: We completed all the sprint backlog items from the iteration plan.
+[01:15] Carol: The velocity this sprint was strong — about 38 story points delivered.
+[02:00] Alice: Action items: review the deployment plan, update onboarding documentation.
+[02:30] David: We need follow-up on the metrics dashboard rollout.
+[03:10] Bob: Decisions: we'll proceed with the event-driven architecture option.
+[03:45] Carol: Discussion point — should we add more automated tests to the pipeline?
+[04:00] Alice: Agreed. Action item: Alice will create tickets for test coverage gaps.
+[04:30] David: Minutes complete. Meeting adjourned.
