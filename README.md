@@ -1,142 +1,169 @@
 # pptgen
 
-### Template-Driven PowerPoint Generation Platform
+**AI-Powered Presentation Generation Platform**
 
-![CI](https://img.shields.io/badge/build-passing-brightgreen)\
-![Python](https://img.shields.io/badge/python-3.10+-blue)\
+![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![Status](https://img.shields.io/badge/status-internal--platform-purple)
 
-`pptgen` is an internal platform for **generating PowerPoint
-presentations from structured content and standardized templates**.
+`pptgen` converts raw text — meeting notes, sprint exports, ADR discussions, DevOps metrics — directly into PowerPoint presentations using template-driven rendering and an AI-assisted pipeline.
 
-Instead of manually building slides, teams define presentation content
-in **YAML or JSON**, and `pptgen` produces the final PowerPoint using
-approved templates.
+---
 
-This enables:
+## Core Capabilities
 
--   consistent presentation formatting\
--   repeatable reporting workflows\
--   easier collaboration across teams\
--   automation of presentation artifacts
+- **Text-to-PowerPoint pipeline** — paste raw text, get a `.pptx` in one command
+- **Automatic input routing** — input is classified and routed to the right playbook
+- **Two execution modes** — `deterministic` (rule-based) and `ai` (LLM-assisted)
+- **Template registry** — all output uses registered, approved `.pptx` templates
+- **REST API** — `POST /v1/generate` for programmatic access
+- **Web UI** — browser-based form for preview, generation, and download
+- **Input connectors** — normalize structured sources (transcripts, ADO exports, metrics)
+- **Batch generation** — process a directory of inputs in one command
+- **Artifact export** — save intermediate pipeline objects (spec, plan, deck definition)
+- **Preview mode** — plan slides without rendering a file
 
-The platform is designed for **team-scale usage** with templates stored
-in **OneDrive / SharePoint** and source code managed through **GitHub**.
+---
 
-------------------------------------------------------------------------
+## Architecture
 
-# Table of Contents
+```
+Input text  →  Router  →  Playbook  →  PresentationSpec
+                                              ↓
+                                        Slide Planner
+                                              ↓
+                                       Deck Definition
+                                              ↓
+                                    Renderer (python-pptx)
+                                              ↓
+                                         .pptx file
+```
 
--   [Why pptgen?](#why-pptgen)
--   [Key Features](#key-features)
--   [Requirements](#requirements)
--   [Quick Start](#quick-start)
--   [Example Output](#example-output)
--   [Supported Slide Types](#supported-slide-types)
--   [Architecture Overview](#architecture-overview)
--   [Project Structure](#project-structure)
--   [Templates](#templates)
--   [Template Lifecycle](#template-lifecycle)
--   [CLI Commands](#cli-commands)
--   [Testing](#testing)
--   [Security Considerations](#security-considerations)
--   [Troubleshooting](#troubleshooting)
--   [Documentation](#documentation)
--   [Contributing](#contributing)
--   [Release Process](#release-process)
--   [Long-Term Vision](#long-term-vision)
+Interfaces: **CLI** · **REST API (`/v1`)** · **React Web UI**
 
-------------------------------------------------------------------------
+See [docs/architecture/system_overview.md](docs/architecture/system_overview.md) for the full pipeline narrative.
 
-# Why pptgen?
+---
 
-Many teams repeatedly build similar presentations such as:
+## Quick Start
 
--   leadership updates\
--   operational reviews\
--   architecture presentations\
--   project status updates\
--   KPI dashboards
+```bash
+# Install
+pip install -e .
 
-These decks are typically recreated manually each reporting cycle.
+# Generate a deck from a text file
+pptgen generate notes/meeting.txt
 
-`pptgen` transforms this process into a **structured pipeline**:
+# Generate with AI mode and save to a specific path
+pptgen generate notes/sprint.txt --mode ai --output output/sprint.pptx
 
-YAML Content → Template Validation → PowerPoint Rendering → Final
-Presentation (.pptx)
+# Preview (plan slides without rendering)
+pptgen generate notes/meeting.txt --preview
+```
 
-For example, a **weekly operations report** can be generated from a YAML
-definition and an approved template rather than manually rebuilding
-slides.
+For full onboarding including the API and UI, see [docs/guides/getting_started.md](docs/guides/getting_started.md).
 
-This results in a **repeatable presentation artifact pipeline**.
+---
 
-------------------------------------------------------------------------
+## Interfaces
 
-# Key Features
+### CLI
 
-### Template-Driven Slides
+```bash
+pptgen generate <file>           # Text → .pptx (full pipeline)
+pptgen generate-batch <dir>      # Process a directory of inputs
+pptgen ingest <type> <file>      # Preview connector normalization
+pptgen build --input deck.yaml   # Render a pre-authored YAML deck
+pptgen validate --input deck.yaml
+pptgen list-templates
+```
 
-Presentations are generated from **approved PowerPoint templates**.
+Full CLI reference: [docs/development/repository_guide.md](docs/development/repository_guide.md)
 
-### Structured Content Inputs
+### API
 
-Slides are defined using **YAML or JSON**.
+```bash
+uvicorn pptgen.api.server:app --reload   # Start on http://localhost:8000
+```
 
-### CLI Generation Tool
+Endpoints:
 
-Create decks with a simple command:
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/v1/health` | Health check |
+| GET | `/v1/templates` | List registered templates |
+| GET | `/v1/playbooks` | List available playbooks |
+| POST | `/v1/generate` | Run the generation pipeline |
+| GET | `/v1/files/download` | Download a generated file |
 
-    pptgen build
+Interactive docs: `http://localhost:8000/docs`
 
-### Template Registry
+Full API reference: [docs/architecture/api_and_service_layer.md](docs/architecture/api_and_service_layer.md)
 
-All templates are centrally registered and versioned.
+### Web UI
 
-### Enterprise Storage Integration
+```bash
+cd web && npm install && npm run dev     # Start on http://localhost:5173
+```
 
-Templates can be stored in **OneDrive or SharePoint**.
+Features: text input · mode/template selection · preview · generate · download · artifact paths
 
-### Validation and CI Support
+---
 
-The platform validates templates, content, and slide compatibility.
+## Supported Slide Types
 
-------------------------------------------------------------------------
+`title` · `section` · `bullets` · `two_column` · `metric_summary` · `image_caption`
 
-# Requirements
+See [docs/authoring/slide_type_reference.md](docs/authoring/slide_type_reference.md).
 
-Minimum requirements:
+---
 
--   **Python 3.10+**
--   Access to approved **PowerPoint templates (.pptx)**
--   Access to template storage via **OneDrive or SharePoint**
--   Git (for repository cloning)
+## Templates
 
-------------------------------------------------------------------------
+Templates are registered in `templates/registry.yaml`. Currently approved:
 
-# Quick Start
+- `ops_review_v1`
+- `architecture_overview_v1`
+- `executive_brief_v1`
 
-## 1. Clone the Repository
+See [docs/standards/template_authoring_standard.md](docs/standards/template_authoring_standard.md) to add a new template.
 
-    git clone https://github.com/<org>/pptgen.git
-    cd pptgen
+---
 
-## 2. Install the Package
+## Testing
 
-    pip install -e .
+```bash
+pytest                        # Backend (957 tests)
+cd web && npm test            # Frontend (64 tests)
+```
 
-## 3. Create a Deck Definition
+---
 
-Example `deck.yaml`:
+## Documentation
 
-``` yaml
+| Document | Purpose |
+|---|---|
+| [docs/guides/getting_started.md](docs/guides/getting_started.md) | Start here — run the platform locally |
+| [docs/architecture/system_overview.md](docs/architecture/system_overview.md) | Full platform architecture |
+| [docs/architecture/api_and_service_layer.md](docs/architecture/api_and_service_layer.md) | API endpoints and contracts |
+| [docs/development/repository_guide.md](docs/development/repository_guide.md) | Where code lives; how to extend |
+| [docs/authoring/yaml_authoring_guide.md](docs/authoring/yaml_authoring_guide.md) | Manual YAML deck authoring |
+| [docs/authoring/slide_type_reference.md](docs/authoring/slide_type_reference.md) | Slide type field reference |
+| [ARCHITECTURE_MAP.md](ARCHITECTURE_MAP.md) | Deep-dive architecture reference |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guide |
+
+---
+
+## YAML Authoring (manual workflow)
+
+For teams that prefer writing deck definitions directly in YAML:
+
+```yaml
 deck:
   title: DevOps Strategy
   author: David Harris
   template: ops_review_v1
 
 slides:
-
   - type: title
     title: DevOps Transformation
     subtitle: 30-60-90 Day Plan
@@ -146,193 +173,11 @@ slides:
     bullets:
       - Stabilize production pipelines
       - Improve deployment consistency
-      - Implement observability standards
 ```
 
-## 4. Generate the Presentation
-
-    pptgen build   --template ops_review_v1   --input deck.yaml   --output devops_strategy.pptx
-
-This command generates **`devops_strategy.pptx`** in the current
-directory using the selected template.
-
-------------------------------------------------------------------------
-
-# Example Output
-
-A generated deck may contain slides such as:
-
-Title Slide\
-DevOps Transformation\
-30-60-90 Day Plan
-
-Bullet Slide\
-Strategic Priorities\
-• Stabilize production pipelines\
-• Improve deployment consistency\
-• Implement observability standards
-
-------------------------------------------------------------------------
-
-# Supported Slide Types
-
-    title
-    section
-    bullets
-    two_column
-    metric_summary
-    image_caption
-
-------------------------------------------------------------------------
-
-# Architecture Overview
-
-Content Input (YAML / JSON)\
-→ Schema Validation\
-→ Template Registry\
-→ Template Loader\
-→ Template Inspector\
-→ Rendering Engine\
-→ PowerPoint Output (.pptx)
-
-------------------------------------------------------------------------
-
-# Project Structure
-
-    pptgen/
-
-    README.md
-    CHANGELOG.md
-    pyproject.toml
-
-    src/
-     └── pptgen/
-          ├── cli.py
-          ├── engine/
-          ├── models/
-          ├── registry/
-          ├── connectors/
-          └── utils/
-
-    templates/
-    examples/
-    tests/
-    docs/
-    .github/
-
-------------------------------------------------------------------------
-
-# Templates
-
-Templates define the visual layout of generated presentations.
-
-Each template must include:
-
--   defined slide layouts\
--   supported placeholders\
--   template metadata\
--   template ownership
-
-All templates must be registered in:
-
-    templates/registry.yaml
-
-------------------------------------------------------------------------
-
-# Template Lifecycle
-
-Draft → Review → Approved → Deprecated → Archived
-
-Only **Approved templates** may be used for production deck generation.
-
-------------------------------------------------------------------------
-
-# CLI Commands
-
-Build presentation
-
-    pptgen build
-
-Validate deck
-
-    pptgen validate --input deck.yaml
-
-List templates
-
-    pptgen list-templates
-
-Inspect template
-
-    pptgen inspect-template
-
-------------------------------------------------------------------------
-
-# Testing
-
-Run tests:
-
-    pytest
-
-Tests include:
-
--   unit tests
--   integration tests
--   snapshot tests
-
-------------------------------------------------------------------------
-
-# Security Considerations
-
--   no secrets stored in configuration files
--   generated presentations must **never overwrite templates**
--   SharePoint access uses existing user permissions
-
-------------------------------------------------------------------------
-
-# Troubleshooting
-
-Template Not Found → ensure template exists in `templates/registry.yaml`
-
-Unsupported Slide Type → verify supported slide list
-
-Missing Placeholder → confirm placeholder exists in template
-
-------------------------------------------------------------------------
-
-# Documentation
-
-See `/docs` directory for full documentation.
-
-------------------------------------------------------------------------
-
-# Contributing
-
-Contributions via pull requests.
-
-Requirements:
-
--   templates must pass validation
--   new features require tests
--   documentation updates required
-
-------------------------------------------------------------------------
-
-# Release Process
-
-Releases occur **monthly or as needed**.
-
-All releases must update:
-
-    CHANGELOG.md
-
-------------------------------------------------------------------------
-
-# Long-Term Vision
-
-The platform may evolve into a **presentation automation system**
-capable of generating:
-
--   executive reporting decks
--   architecture slide packs
--   dashboard-to-slide reporting
--   operational briefings
+```bash
+pptgen validate --input deck.yaml
+pptgen build --input deck.yaml --output strategy.pptx
+```
+
+Full guide: [docs/authoring/yaml_authoring_guide.md](docs/authoring/yaml_authoring_guide.md)

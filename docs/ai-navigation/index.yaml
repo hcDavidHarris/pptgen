@@ -19,6 +19,67 @@ version: "1.0"
 
 tasks:
 
+  generate_presentation_pipeline:
+    description: Run the full text-to-PPTX generation pipeline via CLI or API
+    primary_files:
+      - src/pptgen/pipeline/generation_pipeline.py
+      - src/pptgen/cli/generate.py
+    reference_files:
+      - docs/architecture/system_overview.md
+      - docs/guides/getting_started.md
+    cli_command: "pptgen generate <file.txt>"
+    api_endpoint: "POST /v1/generate"
+
+  generate_batch:
+    description: Process a directory of input files into multiple PPTX outputs
+    primary_files:
+      - src/pptgen/cli/generate_batch.py
+    cli_command: "pptgen generate-batch <dir/>"
+
+  use_connector:
+    description: Normalize structured source files (ADO, transcripts, metrics) for the pipeline
+    primary_files:
+      - src/pptgen/connectors/connector_factory.py
+      - src/pptgen/connectors/ado_connector.py
+      - src/pptgen/connectors/transcript_connector.py
+      - src/pptgen/connectors/metrics_connector.py
+    cli_command: "pptgen ingest <type> <file>"
+    reference_files:
+      - docs/architecture/system_overview.md
+
+  export_artifacts:
+    description: Export pipeline intermediate objects (spec, plan, deck definition) to JSON
+    primary_files:
+      - src/pptgen/artifacts/artifact_writer.py
+    cli_flag: "--artifacts"
+    api_field: "artifacts: true"
+    output_files:
+      - spec.json
+      - slide_plan.json
+      - deck_definition.json
+
+  call_api:
+    description: Use the pptgen REST API to generate presentations programmatically
+    primary_files:
+      - src/pptgen/api/routes.py
+      - src/pptgen/api/schemas.py
+      - src/pptgen/api/server.py
+    reference_files:
+      - docs/architecture/api_and_service_layer.md
+    start_command: "uvicorn pptgen.api.server:app --reload"
+    docs_url: "http://localhost:8000/docs"
+
+  use_web_ui:
+    description: Use the browser-based UI to preview, generate, and download presentations
+    primary_files:
+      - web/src/App.tsx
+      - web/src/api.ts
+      - web/src/components/GenerateForm.tsx
+      - web/src/components/ResultPanel.tsx
+    start_command: "cd web && npm run dev"
+    reference_files:
+      - docs/guides/getting_started.md
+
   generate_deck_yaml:
     description: Generate a pptgen YAML deck from notes, outlines, or structured input
     primary_files:
@@ -158,8 +219,14 @@ documentation:
   architecture:
     - path: docs/ARCHITECTURE_MAP.md
       purpose: Full platform architecture reference — read this first
+    - path: docs/architecture/system_overview.md
+      purpose: Platform overview — pipeline, interfaces, connectors, data models
+    - path: docs/architecture/data_models.md
+      purpose: Field-level reference for all pipeline data models
+    - path: docs/architecture/api_and_service_layer.md
+      purpose: API endpoints, request/response contracts, error shapes, CORS
     - path: docs/architecture/system_map.md
-      purpose: Concise system maps for engine, workspace, and AI workflow
+      purpose: Workspace and AI-assisted authoring workflow maps
     - path: docs/architecture/authoring_contract.md
       purpose: Canonical YAML field and schema rules
 
@@ -204,10 +271,14 @@ documentation:
       purpose: Official placeholder naming contract per layout
 
   guides:
+    - path: docs/guides/getting_started.md
+      purpose: Onboarding — run CLI, API, and UI from scratch
     - path: docs/guides/how_decks_are_built.md
       purpose: Full pipeline walkthrough from input to .pptx
     - path: docs/guides/repository_guide.md
-      purpose: Where things live in the repo; what to touch for each task type
+      purpose: YAML authoring — where templates, schemas, examples live
+    - path: docs/development/repository_guide.md
+      purpose: Developer navigation — pipeline, API, connectors, UI, tests
 
 # ---------------------------------------------------------------------------
 # Key Architecture Files
@@ -245,3 +316,31 @@ key_architecture_files:
 
   errors:
     - src/pptgen/errors/__init__.py                # PptgenError hierarchy
+
+  pipeline:
+    - src/pptgen/pipeline/generation_pipeline.py   # Main orchestrator (text → .pptx)
+    - src/pptgen/input_router/                      # Input classification → playbook_id
+    - src/pptgen/playbook_engine/                   # Deterministic and AI executors
+    - src/pptgen/planner/                           # SlidePlan construction
+    - src/pptgen/spec/spec_to_deck.py               # SlidePlan → deck_definition
+    - src/pptgen/artifacts/artifact_writer.py       # Artifact export
+
+  connectors:
+    - src/pptgen/connectors/connector_factory.py    # Type → connector registry
+    - src/pptgen/connectors/ado_connector.py        # Azure DevOps sprint JSON
+    - src/pptgen/connectors/transcript_connector.py # Meeting transcript text
+    - src/pptgen/connectors/metrics_connector.py    # DORA/DevOps metrics JSON
+
+  api:
+    - src/pptgen/api/server.py                      # FastAPI app + CORS
+    - src/pptgen/api/routes.py                      # /v1/* endpoint definitions
+    - src/pptgen/api/file_routes.py                 # /v1/files/download
+    - src/pptgen/api/schemas.py                     # Pydantic request/response models
+    - src/pptgen/api/service.py                     # Business logic layer
+
+  web_ui:
+    - web/src/App.tsx                               # Root state + API calls
+    - web/src/api.ts                                # Typed API client
+    - web/src/types.ts                              # TypeScript types
+    - web/src/components/GenerateForm.tsx           # Input form
+    - web/src/components/ResultPanel.tsx            # Result display + download

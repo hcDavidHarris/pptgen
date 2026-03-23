@@ -3,6 +3,10 @@
 Version: 1.0
 Owner: Analytics / DevOps Platform Team
 
+> **Note:** This guide covers the YAML authoring and template/schema areas of the repo.
+> For the expanded platform (pipeline, API, connectors, Web UI), see
+> [docs/development/repository_guide.md](../../docs/development/repository_guide.md).
+
 A practical guide to navigating the pptgen repository. Where things live, what to touch when, and where not to go unless you know what you're doing.
 
 ---

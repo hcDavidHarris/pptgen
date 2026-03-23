@@ -3,6 +3,10 @@
 Version: 1.0
 Owner: Analytics / DevOps Platform Team
 
+> **Note:** This document covers the workspace and AI-assisted authoring workflow.
+> For the full platform architecture (CLI pipeline, FastAPI service, Web UI, connectors),
+> see [docs/architecture/system_overview.md](system_overview.md).
+
 This document provides a concise system map of the pptgen platform across three dimensions: the engine architecture, the workspace architecture, and the AI-assisted workflow architecture.
 
 ---

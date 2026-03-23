@@ -29,3 +29,19 @@ web/dist/
 
 # Vite
 web/.vite/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# build output
+dist/
+build/
+
+# environment
+.env
+.env.local
+web/.env
+
+# Vite cache
+.vite/
