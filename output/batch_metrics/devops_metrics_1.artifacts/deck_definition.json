@@ -1,0 +1,56 @@
+{
+  "deck": {
+    "author": "Unknown",
+    "template": "ops_review_v1",
+    "title": "DevOps Scorecard",
+    "version": "1.0"
+  },
+  "slides": [
+    {
+      "subtitle": "Team: Platform Engineering",
+      "title": "DevOps Scorecard",
+      "type": "title"
+    },
+    {
+      "id": "section_1",
+      "section_title": "Scorecard",
+      "type": "section"
+    },
+    {
+      "bullets": [
+        "Team: Platform Engineering",
+        "Period: Q1 2026",
+        "CI pass rate: 96.1%",
+        "Deployment pipeline status: green",
+        "Rollbacks this quarter: 2",
+        "Notes: Stable DORA performance. Change failure rate slightly above target — root cause analysis in progress."
+      ],
+      "id": "bullets_1_1",
+      "title": "Scorecard",
+      "type": "bullets"
+    },
+    {
+      "id": "metrics_1_1",
+      "metrics": [
+        {
+          "label": "Deployment frequency",
+          "value": "3 per day"
+        },
+        {
+          "label": "Lead time for changes",
+          "value": "4 hours"
+        },
+        {
+          "label": "Change failure rate",
+          "value": "2.1%"
+        },
+        {
+          "label": "Mean time to restore (MTTR",
+          "value": "18 minutes"
+        }
+      ],
+      "title": "Scorecard",
+      "type": "metric_summary"
+    }
+  ]
+}

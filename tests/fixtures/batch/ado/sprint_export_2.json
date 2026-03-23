@@ -1,0 +1,18 @@
+{
+  "sprint": "Sprint 11",
+  "iteration": "2026-03-03 to 2026-03-16",
+  "team": "Platform Engineering",
+  "velocity": 41,
+  "story_points_committed": 42,
+  "story_points_completed": 41,
+  "blocked_count": 0,
+  "bugs": 1,
+  "pull_requests": 16,
+  "work_items": [
+    {"id": 905, "title": "Complete database migration phase 2", "type": "Feature", "status": "Completed", "story_points": 13},
+    {"id": 906, "title": "Add integration tests for ingestion API", "type": "Task", "status": "Completed", "story_points": 8},
+    {"id": 907, "title": "Patch security vulnerability in dependency", "type": "Bug", "status": "Completed", "story_points": 3},
+    {"id": 908, "title": "Update backlog with Q2 work items", "type": "Task", "status": "Completed", "story_points": 5}
+  ],
+  "notes": "Best velocity sprint this quarter. Zero blocked work items."
+}

@@ -1,0 +1,18 @@
+{
+  "sprint": "Sprint 10",
+  "iteration": "2026-02-17 to 2026-03-02",
+  "team": "Platform Engineering",
+  "velocity": 34,
+  "story_points_committed": 36,
+  "story_points_completed": 34,
+  "blocked_count": 1,
+  "bugs": 2,
+  "pull_requests": 11,
+  "work_items": [
+    {"id": 901, "title": "Migrate auth service to new token format", "type": "Feature", "status": "Completed", "story_points": 13},
+    {"id": 902, "title": "Fix flaky test in CI pipeline", "type": "Bug", "status": "Completed", "story_points": 3},
+    {"id": 903, "title": "Backlog grooming and sprint planning", "type": "Task", "status": "Completed", "story_points": 2},
+    {"id": 904, "title": "Epic: database migration phase 1", "type": "Epic", "status": "Blocked", "story_points": 8}
+  ],
+  "notes": "Good velocity. One epic remains blocked on infrastructure provisioning."
+}

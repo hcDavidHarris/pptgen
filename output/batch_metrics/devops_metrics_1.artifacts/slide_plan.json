@@ -1,0 +1,34 @@
+{
+  "notes": "",
+  "planned_slide_types": [
+    "title",
+    "section",
+    "bullets",
+    "metric_summary"
+  ],
+  "playbook_id": "devops-metrics-to-scorecard",
+  "section_count": 1,
+  "slide_count": 4,
+  "slides": [
+    {
+      "slide_type": "title",
+      "source_section_title": null,
+      "title": "DevOps Scorecard"
+    },
+    {
+      "slide_type": "section",
+      "source_section_title": "Scorecard",
+      "title": "Scorecard"
+    },
+    {
+      "slide_type": "bullets",
+      "source_section_title": "Scorecard",
+      "title": "Scorecard"
+    },
+    {
+      "slide_type": "metric_summary",
+      "source_section_title": "Scorecard",
+      "title": "Scorecard"
+    }
+  ]
+}

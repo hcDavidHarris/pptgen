@@ -1,0 +1,17 @@
+Meeting: Architecture Review — Q1 Close
+Date: 2026-03-20
+Attendees: Alice, David, Eve
+
+Agenda: review outstanding action items and decisions from Q1.
+
+Action items:
+- Finalize ADR-012 for event bus adoption
+- Schedule follow-up with security team re: token storage decisions
+- Document meeting minutes for distribution
+
+Decisions made today:
+- Proceed with async messaging pattern (option A selected)
+- Deprecate legacy sync endpoints by end of Q2
+
+Discussion on attendee availability for Q2 planning kicked off.
+Minutes will be distributed to all attendees by end of week.
