@@ -19,3 +19,13 @@ build/
 
 # Generated presentations
 *.pptx
+
+
+# Node / frontend
+node_modules/
+web/node_modules/
+dist/
+web/dist/
+
+# Vite
+web/.vite/
