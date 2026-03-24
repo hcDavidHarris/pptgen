@@ -4,8 +4,10 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from typing import Optional
+
 from ..runs.models import RunRecord
-from .schemas import ArtifactMetadataResponse, RunResponse
+from .schemas import ArtifactMetadataResponse, RunListItemResponse, RunListResponse, RunMetricsResponse, RunResponse
 
 router = APIRouter(prefix="/v1/runs", tags=["runs"])
 
@@ -51,6 +53,20 @@ def _run_to_response(run: RunRecord) -> RunResponse:
     )
 
 
+def _run_to_list_item(run: RunRecord) -> RunListItemResponse:
+    return RunListItemResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        source=run.source.value,
+        job_id=run.job_id,
+        started_at=run.started_at.isoformat(),
+        completed_at=run.completed_at.isoformat() if run.completed_at else None,
+        total_ms=run.total_ms,
+        artifact_count=run.artifact_count,
+        error_category=run.error_category,
+    )
+
+
 def _artifact_to_response(a) -> ArtifactMetadataResponse:
     return ArtifactMetadataResponse(
         artifact_id=a.artifact_id,
@@ -66,6 +82,44 @@ def _artifact_to_response(a) -> ArtifactMetadataResponse:
         retention_class=a.retention_class.value,
         status=a.status.value,
         created_at=a.created_at.isoformat(),
+    )
+
+
+@router.get("")
+def list_runs(
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+) -> RunListResponse:
+    run_store = _get_run_store(request)
+    runs = run_store.list_runs(limit=limit, offset=offset, status=status, source=source)
+    return RunListResponse(
+        runs=[_run_to_list_item(r) for r in runs],
+        total=len(runs),
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/{run_id}/metrics")
+def get_run_metrics(run_id: str, request: Request) -> RunMetricsResponse:
+    run_store = _get_run_store(request)
+    run = run_store.get(run_id)
+    if run is None:
+        raise HTTPException(404, f"Run not found: {run_id}")
+    timings = run.stage_timings or []
+    valid = [t for t in timings if t.get("duration_ms") is not None]
+    slowest = max(valid, key=lambda t: t["duration_ms"], default=None)
+    fastest = min(valid, key=lambda t: t["duration_ms"], default=None)
+    return RunMetricsResponse(
+        run_id=run.run_id,
+        total_ms=run.total_ms,
+        artifact_count=run.artifact_count,
+        stage_timings=timings,
+        slowest_stage=slowest["stage"] if slowest else None,
+        fastest_stage=fastest["stage"] if fastest else None,
     )
 
 

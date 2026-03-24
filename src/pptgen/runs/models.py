@@ -47,6 +47,9 @@ class RunRecord:
 
     manifest_path: Optional[str] = None  # relative to artifact_store_base
 
+    stage_timings: Optional[list] = None  # [{"stage": str, "duration_ms": float|None}]
+    artifact_count: Optional[int] = None
+
     @classmethod
     def create(
         cls,

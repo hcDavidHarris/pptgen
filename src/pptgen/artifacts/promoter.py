@@ -15,6 +15,9 @@ from .storage import ArtifactStorage, compute_checksum
 
 logger = logging.getLogger(__name__)
 
+from ..observability import get_logger as _get_structured_logger
+_slog = _get_structured_logger(__name__)
+
 # Maps workspace filenames to ArtifactType
 # (filename_in_workspace, artifact_type, is_in_artifacts_subdir)
 _WORKSPACE_ARTIFACTS: list[tuple[str, ArtifactType, bool]] = [
@@ -85,6 +88,12 @@ class ArtifactPromoter:
                 self._artifact_store.register(record)
                 promoted.append(record)
                 logger.debug("Promoted %s (%d bytes)", filename, size)
+                _slog.artifact_promoted(
+                    run.run_id,
+                    artifact_type=artifact_type.value,
+                    size_bytes=size,
+                    checksum=checksum,
+                )
             except Exception as exc:
                 promotion_errors.append(f"{filename}: {exc}")
                 logger.warning("Failed to promote %s: %s", filename, exc)
@@ -127,7 +136,15 @@ class ArtifactPromoter:
         except Exception as exc:
             logger.warning("Failed to write manifest for run %s: %s", run.run_id, exc)
 
+        # Emit run outcome log event
+        if final_status.value == "succeeded":
+            _slog.run_completed(run.run_id, total_ms=total_ms)
+        else:
+            _slog.run_failed(run.run_id, error_category=error_category)
+
         # Finalize run record
+        stage_timings = run_context_dict.get("timings") if run_context_dict else None
+        non_manifest_count = len([a for a in promoted if a.artifact_type != ArtifactType.MANIFEST])
         self._run_store.update_status(
             run.run_id,
             final_status,
@@ -136,6 +153,8 @@ class ArtifactPromoter:
             error_message=error_message,
             total_ms=total_ms,
             manifest_path=manifest_path_rel,
+            stage_timings=stage_timings,
+            artifact_count=non_manifest_count,
         )
 
         return promoted

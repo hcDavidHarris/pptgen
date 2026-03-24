@@ -176,3 +176,41 @@ class ArtifactMetadataResponse(BaseModel):
     retention_class: str
     status: str
     created_at: str
+
+
+# ---------------------------------------------------------------------------
+# Observability schemas (Stage 6D)
+# ---------------------------------------------------------------------------
+
+class RunListItemResponse(BaseModel):
+    """Summary item in a run list response."""
+
+    run_id: str
+    status: str
+    source: str
+    job_id: str | None = None
+    started_at: str
+    completed_at: str | None = None
+    total_ms: float | None = None
+    artifact_count: int | None = None
+    error_category: str | None = None
+
+
+class RunListResponse(BaseModel):
+    """Response for ``GET /v1/runs``."""
+
+    runs: list[RunListItemResponse]
+    total: int
+    limit: int
+    offset: int
+
+
+class RunMetricsResponse(BaseModel):
+    """Response for ``GET /v1/runs/{run_id}/metrics``."""
+
+    run_id: str
+    total_ms: float | None = None
+    artifact_count: int | None = None
+    stage_timings: list[dict] = []
+    slowest_stage: str | None = None
+    fastest_stage: str | None = None

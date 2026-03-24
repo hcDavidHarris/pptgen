@@ -20,5 +20,15 @@ class AbstractRunStore(Protocol):
         error_message: Optional[str] = None,
         total_ms: Optional[float] = None,
         manifest_path: Optional[str] = None,
+        stage_timings: Optional[list] = None,
+        artifact_count: Optional[int] = None,
     ) -> None: ...
+    def list_runs(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> list[RunRecord]: ...
+    def list_for_job(self, job_id: str) -> list[RunRecord]: ...
     def close(self) -> None: ...

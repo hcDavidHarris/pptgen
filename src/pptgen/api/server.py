@@ -41,7 +41,22 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from ..runs.sqlite_store import SQLiteRunStore
     from .service import set_artifact_services
 
+    import logging as _logging
+    from ..observability.structured_logger import JsonFormatter
+
     settings = get_settings()
+
+    # Configure root logger level and optional JSON formatting
+    log_level = getattr(_logging, settings.log_level.upper(), _logging.INFO)
+    root_logger = _logging.getLogger()
+    root_logger.setLevel(log_level)
+    if settings.log_json_format and not any(
+        isinstance(h.formatter, JsonFormatter) for h in root_logger.handlers
+    ):
+        _handler = _logging.StreamHandler()
+        _handler.setFormatter(JsonFormatter())
+        root_logger.addHandler(_handler)
+
     assert_startup_healthy(settings)
 
     job_store = SQLiteJobStore.from_settings(settings)

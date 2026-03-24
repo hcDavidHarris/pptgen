@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..jobs.models import JobRecord, WorkloadType
 from ..jobs.store import AbstractJobStore
-from .schemas import JobCancelResponse, JobStatusResponse, JobSubmitRequest
+from .schemas import JobCancelResponse, JobStatusResponse, JobSubmitRequest, RunListItemResponse
 
 router = APIRouter(prefix="/v1/jobs", tags=["jobs"])
 
@@ -69,6 +69,20 @@ def get_job_status(job_id: str, request: Request) -> JobStatusResponse:
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
     return _to_status_response(job)
+
+
+@router.get("/{job_id}/runs")
+def get_job_runs(job_id: str, request: Request) -> list[RunListItemResponse]:
+    """List all run records linked to a job."""
+    store = get_job_store(request)
+    if store.get(job_id) is None:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    run_store = getattr(request.app.state, "run_store", None)
+    if run_store is None:
+        raise HTTPException(status_code=503, detail="Run store not available")
+    runs = run_store.list_for_job(job_id)
+    from .run_routes import _run_to_list_item
+    return [_run_to_list_item(r) for r in runs]
 
 
 @router.post("/{job_id}/cancel")

@@ -18,6 +18,9 @@ from .store import AbstractJobStore
 
 logger = logging.getLogger(__name__)
 
+from ..observability import get_logger as _get_structured_logger
+_slog = _get_structured_logger(__name__)
+
 
 class JobWorker:
     """Single daemon thread that claims and executes queued jobs.
@@ -139,6 +142,7 @@ class JobWorker:
                     template_id=job.template_id,
                 )
                 self._run_store.create(run)
+                _slog.job_claimed(job.job_id, run_id=job.run_id, worker_id=self._worker_id)
 
             generate_presentation(
                 job.input_text,
@@ -164,6 +168,7 @@ class JobWorker:
                 playbook_id=ctx.playbook_id,
             )
             logger.info("Job %s succeeded", job.job_id)
+            _slog.job_completed(job.job_id, run_id=job.run_id)
         except PptgenError as exc:
             self._handle_failure(job, exc, run=run, ws=ws, ctx=ctx)
         except Exception as exc:
@@ -185,6 +190,7 @@ class JobWorker:
         message = str(exc)
 
         logger.warning("Job %s failed (category=%s): %s", job.job_id, cat, message)
+        _slog.job_failed(job.job_id, run_id=job.run_id, error=message)
 
         # Record failure in run registry if promoter is wired in
         if self._promoter is not None and run is not None and ws is not None:

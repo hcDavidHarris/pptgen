@@ -176,6 +176,14 @@ class RuntimeSettings:
     artifact_retention_shorter_hours: int = 24
 
     # ------------------------------------------------------------------
+    # Observability (Stage 6D)
+    # ------------------------------------------------------------------
+    #: Log level for the root logger. Default INFO.
+    log_level: str = "INFO"
+    #: Emit structured JSON log lines when True.
+    log_json_format: bool = False
+
+    # ------------------------------------------------------------------
     # Computed properties
     # ------------------------------------------------------------------
 
@@ -299,6 +307,8 @@ class RuntimeSettings:
                 "PPTGEN_ARTIFACT_RETENTION_SHORTER_HOURS",
                 "artifact_retention_shorter_hours", 24,
             ),
+            log_level=os.environ.get("PPTGEN_LOG_LEVEL", "INFO"),
+            log_json_format=os.environ.get("PPTGEN_LOG_JSON_FORMAT", "").lower() in ("1", "true", "yes"),
         )
 
 

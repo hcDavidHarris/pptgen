@@ -32,6 +32,7 @@ from .generate import generate_command
 from .generate_batch import generate_batch_command
 from .ingest import ingest_command
 from .job_commands import job_app
+from .run_commands import run_app
 from .template_inspect import template_app
 from .workspace_init import workspace_app
 
@@ -45,6 +46,7 @@ app = typer.Typer(
 app.add_typer(deck_app, name="deck")
 app.add_typer(example_app, name="example")
 app.add_typer(job_app, name="job")
+app.add_typer(run_app, name="runs")
 app.add_typer(template_app, name="template")
 app.add_typer(workspace_app, name="workspace")
 

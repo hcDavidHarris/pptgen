@@ -1,6 +1,7 @@
 """SQLite-backed run registry."""
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -40,6 +41,10 @@ def _iso(v: Optional[datetime]) -> Optional[str]:
 
 
 def _row_to_run(r: sqlite3.Row) -> RunRecord:
+    keys = r.keys()
+    stage_timings_raw = r["stage_timings"] if "stage_timings" in keys else None
+    stage_timings = json.loads(stage_timings_raw) if stage_timings_raw else None
+    artifact_count = r["artifact_count"] if "artifact_count" in keys else None
     return RunRecord(
         run_id=r["run_id"],
         status=RunStatus(r["status"]),
@@ -57,6 +62,8 @@ def _row_to_run(r: sqlite3.Row) -> RunRecord:
         error_category=r["error_category"],
         error_message=r["error_message"],
         manifest_path=r["manifest_path"],
+        stage_timings=stage_timings,
+        artifact_count=artifact_count,
     )
 
 
@@ -68,6 +75,18 @@ class SQLiteRunStore:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute(_CREATE_RUNS)
+        self._conn.commit()
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        existing = {row[1] for row in self._conn.execute("PRAGMA table_info(runs)").fetchall()}
+        new_columns = {
+            "stage_timings": "ALTER TABLE runs ADD COLUMN stage_timings TEXT",
+            "artifact_count": "ALTER TABLE runs ADD COLUMN artifact_count INTEGER",
+        }
+        for col, ddl in new_columns.items():
+            if col not in existing:
+                self._conn.execute(ddl)
         self._conn.commit()
 
     def create(self, run: RunRecord) -> None:
@@ -98,11 +117,14 @@ class SQLiteRunStore:
         error_message: Optional[str] = None,
         total_ms: Optional[float] = None,
         manifest_path: Optional[str] = None,
+        stage_timings: Optional[list] = None,
+        artifact_count: Optional[int] = None,
     ) -> None:
         terminal = status in (
             RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED
         )
         now = _iso(datetime.now(tz=timezone.utc))
+        stage_timings_json = json.dumps(stage_timings) if stage_timings is not None else None
         with self._lock:
             self._conn.execute(
                 """UPDATE runs SET
@@ -112,13 +134,43 @@ class SQLiteRunStore:
                     error_category = COALESCE(?, error_category),
                     error_message = COALESCE(?, error_message),
                     total_ms = COALESCE(?, total_ms),
-                    manifest_path = COALESCE(?, manifest_path)
+                    manifest_path = COALESCE(?, manifest_path),
+                    stage_timings = COALESCE(?, stage_timings),
+                    artifact_count = COALESCE(?, artifact_count)
                 WHERE run_id = ?""",
                 (status.value, int(terminal), now,
                  playbook_id, error_category, error_message,
-                 total_ms, manifest_path, run_id),
+                 total_ms, manifest_path, stage_timings_json, artifact_count, run_id),
             )
             self._conn.commit()
+
+    def list_runs(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status: Optional[str] = None,
+        source: Optional[str] = None,
+    ) -> list[RunRecord]:
+        clauses: list[str] = []
+        params: list = []
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if source:
+            clauses.append("source = ?")
+            params.append(source)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self._conn.execute(
+            f"SELECT * FROM runs {where} ORDER BY started_at DESC LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+        return [_row_to_run(r) for r in rows]
+
+    def list_for_job(self, job_id: str) -> list[RunRecord]:
+        rows = self._conn.execute(
+            "SELECT * FROM runs WHERE job_id = ? ORDER BY started_at", (job_id,)
+        ).fetchall()
+        return [_row_to_run(r) for r in rows]
 
     def close(self) -> None:
         with self._lock:

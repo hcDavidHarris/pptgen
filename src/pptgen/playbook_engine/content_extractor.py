@@ -15,6 +15,7 @@ Design constraints
 
 from __future__ import annotations
 
+from pptgen.playbook_engine.note_normalizer import has_labeled_sections, normalize
 from pptgen.spec.presentation_spec import (
     MetricSpec,
     PresentationSpec,
@@ -166,7 +167,16 @@ def _extract_meeting_notes(text: str) -> PresentationSpec:
 
 
 def _extract_ado_summary(text: str) -> PresentationSpec:
-    """Extract a PresentationSpec from an ADO / engineering delivery summary."""
+    """Extract a PresentationSpec from an ADO / engineering delivery summary.
+
+    When *text* contains recognized labeled sections (e.g. ``Problems:``,
+    ``Next Step:``) the note normalizer is used to produce a richer,
+    section-aware spec.  Otherwise the original keyword-heuristic path is
+    used so that structured ADO export text continues to work unchanged.
+    """
+    if has_labeled_sections(text):
+        return _extract_ado_from_normalized(text)
+
     lines = _clean_lines(text)
     title = "Engineering Delivery Summary"
 
@@ -198,6 +208,38 @@ def _extract_ado_summary(text: str) -> PresentationSpec:
     ]
     if blockers:
         sections.append(SectionSpec(title="Blockers and Risks", bullets=blockers))
+
+    return PresentationSpec(title=title, subtitle=subtitle, sections=sections)
+
+
+# Semantic type → human-readable section title used by the normalized path.
+_SEMANTIC_SECTION_TITLES: dict[str, str] = {
+    "risks": "Problems and Risks",
+    "recommendation": "Recommendation",
+    "focus_areas": "Focus Areas",
+    "metrics": "Metrics",
+    "decision": "Decisions",
+    "open_questions": "Open Questions",
+    "general": "Notes",
+}
+
+
+def _extract_ado_from_normalized(text: str) -> PresentationSpec:
+    """Build a :class:`PresentationSpec` from labeled note-style ADO input."""
+    notes = normalize(text)
+    title = notes.title or "Engineering Delivery Summary"
+    subtitle = "Sprint Update"
+
+    sections: list[SectionSpec] = []
+    for sec in notes.sections:
+        section_title = _SEMANTIC_SECTION_TITLES.get(sec.semantic_type, sec.label)
+        bullets = sec.items[:6]
+        if bullets:
+            sections.append(SectionSpec(title=section_title, bullets=bullets))
+
+    if not sections:
+        lines = _clean_lines(text)
+        sections = [SectionSpec(title="Summary", bullets=_content_bullets(lines))]
 
     return PresentationSpec(title=title, subtitle=subtitle, sections=sections)
 
