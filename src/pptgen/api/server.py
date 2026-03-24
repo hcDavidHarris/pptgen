@@ -11,11 +11,26 @@ Or run directly via the CLI::
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from ..config import get_settings
+from ..runtime.startup import assert_startup_healthy
 from .file_routes import file_router
 from .routes import router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Run startup validation before the server begins accepting requests."""
+    settings = get_settings()
+    assert_startup_healthy(settings)
+    yield
+    # Shutdown: no-op in Stage 6A. TTL workspace cleanup scheduled in Stage 6B.
+
 
 app = FastAPI(
     title="pptgen API",
@@ -26,16 +41,14 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
-# Allow the Vite dev server (and any localhost origin) to call the API.
+# CORS origins are driven by settings; fall back to localhost dev server defaults.
+_settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=list(_settings.api_cors_origins) + ["http://127.0.0.1:5173"],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

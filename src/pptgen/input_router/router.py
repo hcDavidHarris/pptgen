@@ -20,6 +20,9 @@ from .classifier import FALLBACK_PLAYBOOK, classify
 class InputRouterError(Exception):
     """Raised for invalid inputs that cannot be routed (e.g. non-string)."""
 
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.VALIDATION
+
 
 def route_input(input_text: str) -> str:
     """Route raw input text to exactly one playbook identifier.

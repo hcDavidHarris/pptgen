@@ -58,6 +58,43 @@ tasks:
       - slide_plan.json
       - deck_definition.json
 
+  configure_runtime:
+    description: Configure pptgen via environment variables or RuntimeSettings
+    primary_files:
+      - src/pptgen/config/settings.py
+    reference_files:
+      - docs/architecture/configuration.md
+      - docs/development/operations_runbook.md
+    notes:
+      - All env vars use the PPTGEN_ prefix
+      - Settings are a frozen singleton — use override_settings() in tests only
+
+  inspect_run_metadata:
+    description: Access per-run metadata (run_id, stage timings, config fingerprint)
+    primary_files:
+      - src/pptgen/runtime/run_context.py
+    notes:
+      - Pass run_context=RunContext() to generate_presentation() to capture timings
+      - Use ctx.as_dict() for JSON-serializable structured logging
+
+  manage_workspaces:
+    description: Create, retrieve, or clean up per-run workspace directories
+    primary_files:
+      - src/pptgen/runtime/workspace.py
+    reference_files:
+      - docs/development/operations_runbook.md
+    notes:
+      - WorkspaceManager.from_settings(get_settings()) is the standard factory
+      - cleanup_older_than(hours) prunes stale workspaces by mtime
+
+  startup_validation:
+    description: Run or extend pre-flight startup checks
+    primary_files:
+      - src/pptgen/runtime/startup.py
+    notes:
+      - assert_startup_healthy() is fatal (used in API lifespan)
+      - validate_startup() is non-fatal (used in CLI)
+
   call_api:
     description: Use the pptgen REST API to generate presentations programmatically
     primary_files:
@@ -225,6 +262,8 @@ documentation:
       purpose: Field-level reference for all pipeline data models
     - path: docs/architecture/api_and_service_layer.md
       purpose: API endpoints, request/response contracts, error shapes, CORS
+    - path: docs/architecture/configuration.md
+      purpose: All RuntimeSettings fields, env var names, profile behaviors, test isolation
     - path: docs/architecture/system_map.md
       purpose: Workspace and AI-assisted authoring workflow maps
     - path: docs/architecture/authoring_contract.md
@@ -279,6 +318,8 @@ documentation:
       purpose: YAML authoring — where templates, schemas, examples live
     - path: docs/development/repository_guide.md
       purpose: Developer navigation — pipeline, API, connectors, UI, tests
+    - path: docs/development/operations_runbook.md
+      purpose: Startup validation, workspace cleanup, environment setup, log patterns, failure scenarios
 
 # ---------------------------------------------------------------------------
 # Key Architecture Files
@@ -314,8 +355,17 @@ key_architecture_files:
     - src/pptgen/cli/workspace_init.py             # pptgen workspace init
     - src/pptgen/cli/validation_explain.py         # Error/warning explanations
 
+  config:
+    - src/pptgen/config/settings.py                # RuntimeSettings, Profile, get_settings()
+    - src/pptgen/config/__init__.py                # Public config API
+
+  runtime:
+    - src/pptgen/runtime/run_context.py            # RunContext, StageTimer
+    - src/pptgen/runtime/workspace.py              # WorkspaceManager, Workspace
+    - src/pptgen/runtime/startup.py                # validate_startup, assert_startup_healthy
+
   errors:
-    - src/pptgen/errors/__init__.py                # PptgenError hierarchy
+    - src/pptgen/errors/__init__.py                # PptgenError hierarchy + ErrorCategory
 
   pipeline:
     - src/pptgen/pipeline/generation_pipeline.py   # Main orchestrator (text → .pptx)

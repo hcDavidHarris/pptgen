@@ -25,7 +25,8 @@ from pathlib import Path
 from typing import Any
 
 from ..artifacts import write_artifacts
-from ..errors import PptgenError as _PptgenError
+from ..config import get_settings
+from ..errors import InputSizeError, PptgenError as _PptgenError
 from ..input_router import InputRouterError, route_input
 from ..loaders.yaml_loader import parse_deck
 from ..playbook_engine import PlaybookNotFoundError, execute_playbook_full, get_default_template
@@ -33,6 +34,7 @@ from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES
 from ..planner import SlidePlan, plan_slides
 from ..registry.registry import TemplateRegistry
 from ..render import render_deck
+from ..runtime.run_context import RunContext
 from ..spec.presentation_spec import PresentationSpec
 from ..spec.spec_to_deck import convert_spec_to_deck
 
@@ -42,6 +44,9 @@ _REGISTRY_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "reg
 
 class PipelineError(Exception):
     """Raised for invalid inputs or rendering failures at the pipeline boundary."""
+
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.SYSTEM
 
 
 @dataclass
@@ -80,6 +85,7 @@ def generate_presentation(
     template_id: str | None = None,
     mode: str | ExecutionMode = DETERMINISTIC,
     artifacts_dir: Path | None = None,
+    run_context: RunContext | None = None,
 ) -> PipelineResult:
     """Entry point for the presentation generation pipeline.
 
@@ -94,6 +100,9 @@ def generate_presentation(
                        deck is planned.  The directory is created if it does not
                        exist.  When ``None`` (the default), no artifact files are
                        written.
+        run_context: Optional :class:`~pptgen.runtime.run_context.RunContext` for
+                     stage timing and run metadata.  When provided, stage timings
+                     and ``playbook_id`` are populated in-place.
 
     Returns:
         :class:`PipelineResult` with ``stage="rendered"`` or ``"deck_planned"``.
@@ -101,6 +110,7 @@ def generate_presentation(
         provided.
 
     Raises:
+        InputSizeError: If *input_text* exceeds the configured ``max_input_bytes``.
         PipelineError: If *input_text* is not a string, *template_id* or *mode*
                        is invalid, or any pipeline step fails.
     """
@@ -121,24 +131,53 @@ def generate_presentation(
 
     normalised = input_text.strip()
 
+    # Input size guard — checked after normalisation.
+    settings = get_settings()
+    byte_len = len(normalised.encode("utf-8"))
+    if byte_len > settings.max_input_bytes:
+        raise InputSizeError(
+            f"Input exceeds maximum size of {settings.max_input_bytes} bytes "
+            f"({byte_len} bytes received)."
+        )
+
     if template_id is not None:
         _validate_template_id(template_id)
 
+    if run_context:
+        run_context.start_stage("route_input")
     try:
         playbook_id = route_input(normalised)
     except InputRouterError as exc:
         raise PipelineError(str(exc)) from exc
+    finally:
+        if run_context:
+            run_context.end_stage("route_input")
 
+    if run_context:
+        run_context.playbook_id = playbook_id
+        run_context.start_stage("execute_playbook")
     try:
         spec, exec_notes = execute_playbook_full(playbook_id, normalised, strategy=mode_str)
     except (PlaybookNotFoundError, UnknownStrategyError) as exc:
         raise PipelineError(str(exc)) from exc
+    finally:
+        if run_context:
+            run_context.end_stage("execute_playbook")
 
     resolved_template = _resolve_template(playbook_id, template_id, spec.template)
     spec = spec.model_copy(update={"template": resolved_template})
 
+    if run_context:
+        run_context.start_stage("plan_slides")
     slide_plan = plan_slides(spec, playbook_id=playbook_id)
+    if run_context:
+        run_context.end_stage("plan_slides")
+
+    if run_context:
+        run_context.start_stage("convert_spec")
     deck_definition = convert_spec_to_deck(spec)
+    if run_context:
+        run_context.end_stage("convert_spec")
 
     # Compose diagnostic notes
     notes_parts: list[str] = []
@@ -176,7 +215,11 @@ def generate_presentation(
             artifact_paths=artifact_paths,
         )
 
+    if run_context:
+        run_context.start_stage("render")
     _render(deck_definition, resolved_template, Path(output_path))
+    if run_context:
+        run_context.end_stage("render")
 
     return PipelineResult(
         stage="rendered",

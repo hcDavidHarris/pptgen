@@ -6,15 +6,14 @@ paths are rejected with 403.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
-file_router = APIRouter(prefix="/v1", tags=["files"])
+from ..config import get_settings
 
-_ALLOWED_BASE = Path(tempfile.gettempdir()) / "pptgen_api"
+file_router = APIRouter(prefix="/v1", tags=["files"])
 
 
 @file_router.get("/files/download")
@@ -32,7 +31,7 @@ def download_file(path: str) -> FileResponse:
         HTTPException 404: File does not exist.
     """
     resolved = Path(path).resolve()
-    allowed = _ALLOWED_BASE.resolve()
+    allowed = get_settings().workspace_base_path.resolve()
 
     if not str(resolved).startswith(str(allowed)):
         raise HTTPException(status_code=403, detail="Access denied.")

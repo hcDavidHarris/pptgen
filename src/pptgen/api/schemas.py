@@ -77,6 +77,7 @@ class GenerateResponse(BaseModel):
     """
 
     request_id: str = Field(..., description="Unique identifier for this request.")
+    run_id: str | None = Field(None, description="Unique identifier for the pipeline run.")
     success: bool
     playbook_id: str
     template_id: str | None = None

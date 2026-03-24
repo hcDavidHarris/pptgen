@@ -41,6 +41,9 @@ VALID_STRATEGIES: frozenset[str] = frozenset(m.value for m in ExecutionMode)
 class UnknownStrategyError(ValueError):
     """Raised when an unrecognised strategy name is supplied."""
 
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.CONFIGURATION
+
 
 def dispatch(
     playbook_id: str,

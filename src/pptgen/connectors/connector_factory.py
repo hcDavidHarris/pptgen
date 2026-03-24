@@ -29,6 +29,9 @@ SUPPORTED_CONNECTORS: frozenset[str] = frozenset(_REGISTRY)
 class UnknownConnectorError(ValueError):
     """Raised when an unrecognised connector type is requested."""
 
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.CONFIGURATION
+
 
 def get_connector(connector_type: str) -> Connector:
     """Return a connector instance for *connector_type*.

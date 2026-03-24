@@ -73,6 +73,9 @@ class BatchResult:
 class BatchError(Exception):
     """Raised for invalid batch configuration (bad directory, bad connector, etc.)."""
 
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.SYSTEM
+
 
 def generate_batch(
     input_dir: Path,

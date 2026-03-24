@@ -29,6 +29,9 @@ class PlaybookNotFoundError(Exception):
     """Raised when a playbook_id is not found in the routing table and is
     not the generic fallback."""
 
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.CONFIGURATION
+
 
 def load_playbook(playbook_id: str) -> RouteEntry | None:
     """Resolve *playbook_id* to its routing table entry.

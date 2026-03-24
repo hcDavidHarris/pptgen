@@ -22,10 +22,12 @@ from typing import Optional
 
 import typer
 
+from ..config import get_settings
 from ..connectors import SUPPORTED_CONNECTORS
 from ..orchestration import generate_batch
 from ..orchestration.batch_generator import BatchError
 from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES, ExecutionMode
+from ..runtime.startup import validate_startup
 
 
 def generate_batch_command(
@@ -89,6 +91,12 @@ def generate_batch_command(
             err=True,
         )
         raise typer.Exit(code=1)
+
+    # --- Startup validation (non-fatal for CLI) ---
+    settings = get_settings()
+    failures = validate_startup(settings)
+    for f in failures:
+        typer.echo(f"Warning: {f}", err=True)
 
     # --artifacts-dir implies artifact export even without --artifacts flag.
     effective_artifacts = artifacts or (artifacts_dir is not None)

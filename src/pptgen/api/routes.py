@@ -55,12 +55,13 @@ def generate(request: GenerateRequest) -> GenerateResponse:
     """
     request_id = _generate_request_id()
     try:
-        result = run_generate(
+        result, ctx = run_generate(
             text=request.text,
             mode=request.mode,
             template_id=request.template_id,
             artifacts=request.artifacts,
             preview_only=request.preview_only,
+            request_id=request_id,
         )
     except APIError as exc:
         raise HTTPException(
@@ -81,6 +82,7 @@ def generate(request: GenerateRequest) -> GenerateResponse:
 
     return GenerateResponse(
         request_id=request_id,
+        run_id=ctx.run_id,
         success=True,
         playbook_id=result.playbook_id,
         template_id=result.template_id,

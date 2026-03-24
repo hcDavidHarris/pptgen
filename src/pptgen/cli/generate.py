@@ -25,8 +25,12 @@ from typing import Optional
 
 import typer
 
+from ..config import get_settings
+from ..errors import InputSizeError
 from ..pipeline import PipelineError, generate_presentation
 from ..playbook_engine.execution_strategy import DETERMINISTIC, VALID_STRATEGIES, ExecutionMode
+from ..runtime import RunContext
+from ..runtime.startup import validate_startup
 
 
 def generate_command(
@@ -117,6 +121,20 @@ def generate_command(
     elif artifacts:
         resolved_artifacts_dir = resolved_output.parent / f"{resolved_output.stem}.artifacts"
 
+    # --- Startup validation (non-fatal for CLI — allows offline usage) ---
+    settings = get_settings()
+    failures = validate_startup(settings)
+    for f in failures:
+        typer.echo(f"Warning: {f}", err=True)
+
+    # --- Build run context ---
+    ctx = RunContext(
+        profile=settings.profile.value,
+        mode=mode,
+        template_id=template,
+        config_fingerprint=settings.fingerprint,
+    )
+
     # --- Run pipeline ---
     try:
         result = generate_presentation(
@@ -125,13 +143,19 @@ def generate_command(
             template_id=template,
             mode=mode,
             artifacts_dir=resolved_artifacts_dir,
+            run_context=ctx,
         )
+    except InputSizeError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(code=1)
     except PipelineError as exc:
         typer.echo(f"Error: {exc}", err=True)
         raise typer.Exit(code=1)
 
     # --- Debug summary ---
     if debug:
+        typer.echo(f"run_id      : {ctx.run_id}")
+        typer.echo(f"total_ms    : {ctx.total_ms():.1f}")
         typer.echo(f"mode        : {result.mode}")
         typer.echo(f"playbook_id : {result.playbook_id}")
         typer.echo(f"template_id : {result.template_id}")

@@ -63,6 +63,9 @@ class RouteEntry:
 class RoutingTableError(Exception):
     """Raised when the routing table file cannot be loaded or parsed."""
 
+    from pptgen.errors import ErrorCategory
+    category = ErrorCategory.CONFIGURATION
+
 
 def _playbook_id_from_path(playbook_path: str) -> str:
     """Derive the playbook identifier from a playbook file path.
