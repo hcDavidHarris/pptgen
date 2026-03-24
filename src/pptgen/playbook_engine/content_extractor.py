@@ -167,16 +167,7 @@ def _extract_meeting_notes(text: str) -> PresentationSpec:
 
 
 def _extract_ado_summary(text: str) -> PresentationSpec:
-    """Extract a PresentationSpec from an ADO / engineering delivery summary.
-
-    When *text* contains recognized labeled sections (e.g. ``Problems:``,
-    ``Next Step:``) the note normalizer is used to produce a richer,
-    section-aware spec.  Otherwise the original keyword-heuristic path is
-    used so that structured ADO export text continues to work unchanged.
-    """
-    if has_labeled_sections(text):
-        return _extract_ado_from_normalized(text)
-
+    """Extract a PresentationSpec from an ADO / engineering delivery summary."""
     lines = _clean_lines(text)
     title = "Engineering Delivery Summary"
 
@@ -224,8 +215,12 @@ _SEMANTIC_SECTION_TITLES: dict[str, str] = {
 }
 
 
-def _extract_ado_from_normalized(text: str) -> PresentationSpec:
-    """Build a :class:`PresentationSpec` from labeled note-style ADO input."""
+def _extract_from_normalized_notes(text: str) -> PresentationSpec:
+    """Build a :class:`PresentationSpec` from labeled note-style input.
+
+    Used as a shared pre-emption path when recognized label headings are
+    detected, regardless of which playbook was selected by the classifier.
+    """
     notes = normalize(text)
     title = notes.title or "Engineering Delivery Summary"
     subtitle = "Sprint Update"
@@ -349,6 +344,12 @@ def extract(playbook_id: str, text: str) -> PresentationSpec:
     """Extract a :class:`~pptgen.spec.presentation_spec.PresentationSpec`
     from *text* using the strategy registered for *playbook_id*.
 
+    When *text* contains **two or more** recognized label headings (e.g.
+    ``Problems:``, ``Decisions:``, ``Open Questions:``) the note normalizer
+    runs first, regardless of which playbook was selected.  The two-label
+    threshold prevents hijacking structured formats (e.g. meeting notes) that
+    only incidentally contain a single recognized label word.
+
     Falls back to the generic strategy for any unrecognised identifier.
     Always returns a structurally valid spec; never raises for string input.
 
@@ -359,5 +360,9 @@ def extract(playbook_id: str, text: str) -> PresentationSpec:
     Returns:
         A valid :class:`~pptgen.spec.presentation_spec.PresentationSpec`.
     """
+    if has_labeled_sections(text):
+        notes = normalize(text)
+        if len(notes.sections) >= 2:
+            return _extract_from_normalized_notes(text)
     strategy = _EXTRACTORS.get(playbook_id, _extract_generic)
     return strategy(text)  # type: ignore[operator]
