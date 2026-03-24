@@ -11,6 +11,8 @@ Commands:
     pptgen template inspect --template <id>
     pptgen example list [--library <name>]
     pptgen workspace init [--path <dir>]
+    pptgen job submit <input_file> [--template <id>] [--batch] [--artifacts]
+    pptgen job status <job_id> [--json]
 """
 
 from __future__ import annotations
@@ -29,6 +31,7 @@ from .example_commands import example_app
 from .generate import generate_command
 from .generate_batch import generate_batch_command
 from .ingest import ingest_command
+from .job_commands import job_app
 from .template_inspect import template_app
 from .workspace_init import workspace_app
 
@@ -41,6 +44,7 @@ app = typer.Typer(
 # Register sub-apps
 app.add_typer(deck_app, name="deck")
 app.add_typer(example_app, name="example")
+app.add_typer(job_app, name="job")
 app.add_typer(template_app, name="template")
 app.add_typer(workspace_app, name="workspace")
 

@@ -149,8 +149,56 @@ class RuntimeSettings:
     )
 
     # ------------------------------------------------------------------
+    # Job execution (Stage 6B)
+    # ------------------------------------------------------------------
+    #: Path to the SQLite job database file.  Empty string defaults to
+    #: ``{workspace_base_path}/jobs.db``.
+    job_db_path: str = ""
+    #: Seconds between worker poll cycles.
+    worker_poll_interval_seconds: float = 2.0
+    #: Maximum number of job retries before terminal failure.
+    max_job_retries: int = 3
+    #: Minutes a job may stay in 'running' state before being considered stale.
+    worker_stale_job_timeout_minutes: int = 15
+
+    # ------------------------------------------------------------------
+    # Artifact and Run Registry (Stage 6C)
+    # ------------------------------------------------------------------
+    #: SQLite DB for run/artifact registry. Empty = {workspace_base}/artifacts.db
+    artifact_db_path: str = ""
+    #: Durable artifact filesystem root. Empty = {workspace_base}/artifact_store
+    artifact_store_base: str = ""
+    #: Retention hours for "longest" class (pptx). Default 7 days.
+    artifact_retention_longest_hours: int = 168
+    #: Retention hours for "medium" class (spec/plan/deck_def). Default 3 days.
+    artifact_retention_medium_hours: int = 72
+    #: Retention hours for "shorter" class (logs/diagnostics). Default 1 day.
+    artifact_retention_shorter_hours: int = 24
+
+    # ------------------------------------------------------------------
     # Computed properties
     # ------------------------------------------------------------------
+
+    @property
+    def job_db_file(self) -> Path:
+        """Absolute path to the SQLite job database file."""
+        if self.job_db_path:
+            return Path(self.job_db_path)
+        return self.workspace_base_path / "jobs.db"
+
+    @property
+    def artifact_db_file(self) -> Path:
+        """Absolute path to the SQLite artifact/run registry database."""
+        if self.artifact_db_path:
+            return Path(self.artifact_db_path)
+        return self.workspace_base_path / "artifacts.db"
+
+    @property
+    def artifact_store_path(self) -> Path:
+        """Absolute path to the durable artifact filesystem root."""
+        if self.artifact_store_base:
+            return Path(self.artifact_store_base)
+        return self.workspace_base_path / "artifact_store"
 
     @property
     def workspace_base_path(self) -> Path:
@@ -227,6 +275,30 @@ class RuntimeSettings:
             api_host=os.environ.get("PPTGEN_API_HOST", "0.0.0.0"),
             api_port=_int("PPTGEN_API_PORT", "api_port", 8000),
             api_cors_origins=cors_origins,
+            job_db_path=os.environ.get("PPTGEN_JOB_DB_PATH", ""),
+            worker_poll_interval_seconds=float(
+                os.environ.get("PPTGEN_WORKER_POLL_INTERVAL", "2.0")
+            ),
+            max_job_retries=_int("PPTGEN_MAX_JOB_RETRIES", "max_job_retries", 3),
+            worker_stale_job_timeout_minutes=_int(
+                "PPTGEN_WORKER_STALE_TIMEOUT_MINUTES",
+                "worker_stale_job_timeout_minutes",
+                15,
+            ),
+            artifact_db_path=os.environ.get("PPTGEN_ARTIFACT_DB_PATH", ""),
+            artifact_store_base=os.environ.get("PPTGEN_ARTIFACT_STORE_BASE", ""),
+            artifact_retention_longest_hours=_int(
+                "PPTGEN_ARTIFACT_RETENTION_LONGEST_HOURS",
+                "artifact_retention_longest_hours", 168,
+            ),
+            artifact_retention_medium_hours=_int(
+                "PPTGEN_ARTIFACT_RETENTION_MEDIUM_HOURS",
+                "artifact_retention_medium_hours", 72,
+            ),
+            artifact_retention_shorter_hours=_int(
+                "PPTGEN_ARTIFACT_RETENTION_SHORTER_HOURS",
+                "artifact_retention_shorter_hours", 24,
+            ),
         )
 
 

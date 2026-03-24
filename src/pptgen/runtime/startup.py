@@ -81,6 +81,26 @@ def validate_startup(settings) -> list[str]:
     if settings.max_input_bytes <= 0:
         failures.append("max_input_bytes must be a positive integer")
 
+    # 5. Job DB directory must be writable (Stage 6B)
+    job_db_dir = settings.job_db_file.parent
+    try:
+        job_db_dir.mkdir(parents=True, exist_ok=True)
+        probe = job_db_dir / ".job_db_write_probe"
+        probe.touch()
+        probe.unlink()
+    except OSError as exc:
+        failures.append(
+            f"Job DB directory not writable: {job_db_dir} ({exc})"
+        )
+
+    # 6. Artifact store base must be writable (Stage 6C)
+    from ..artifacts.storage import ArtifactStorage
+    artifact_storage = ArtifactStorage.from_settings(settings)
+    if not artifact_storage.is_base_writable():
+        failures.append(
+            f"Artifact store base not writable: {settings.artifact_store_path}"
+        )
+
     return failures
 
 

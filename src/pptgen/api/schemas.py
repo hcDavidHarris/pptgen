@@ -95,3 +95,84 @@ class ErrorResponse(BaseModel):
 
     request_id: str = Field(..., description="Unique identifier for this request.")
     error: str = Field(..., description="Human-readable error description.")
+
+
+# ---------------------------------------------------------------------------
+# Job schemas (Stage 6B)
+# ---------------------------------------------------------------------------
+
+class JobSubmitRequest(BaseModel):
+    """Request body for ``POST /v1/jobs``."""
+
+    input_text: str = Field(..., min_length=1, description="Raw input text for the pipeline.")
+    template_id: str | None = Field(None, description="Optional template ID override.")
+    mode: str = Field("deterministic", description="Execution mode: 'deterministic' or 'ai'.")
+    artifacts: bool = Field(False, description="Export pipeline artifacts.")
+    workload_type: str = Field("interactive", description="'interactive' or 'batch'.")
+
+
+class JobStatusResponse(BaseModel):
+    """Response for ``POST /v1/jobs`` (202) and ``GET /v1/jobs/{job_id}``."""
+
+    job_id: str
+    run_id: str
+    status: str
+    workload_type: str
+    submitted_at: str
+    started_at: str | None = None
+    completed_at: str | None = None
+    retry_count: int = 0
+    error_category: str | None = None
+    error_message: str | None = None
+    output_path: str | None = None
+    playbook_id: str | None = None
+
+
+class JobCancelResponse(BaseModel):
+    """Response for ``POST /v1/jobs/{job_id}/cancel``."""
+
+    job_id: str
+    cancelled: bool
+    message: str
+
+
+# ---------------------------------------------------------------------------
+# Run and Artifact schemas (Stage 6C)
+# ---------------------------------------------------------------------------
+
+class RunResponse(BaseModel):
+    """Response for ``GET /v1/runs/{run_id}``."""
+
+    run_id: str
+    status: str
+    source: str
+    job_id: str | None = None
+    request_id: str | None = None
+    mode: str
+    template_id: str | None = None
+    playbook_id: str | None = None
+    profile: str
+    started_at: str
+    completed_at: str | None = None
+    total_ms: float | None = None
+    error_category: str | None = None
+    error_message: str | None = None
+    manifest_path: str | None = None
+
+
+class ArtifactMetadataResponse(BaseModel):
+    """Metadata response for a single artifact."""
+
+    artifact_id: str
+    run_id: str
+    artifact_type: str
+    filename: str
+    relative_path: str
+    mime_type: str
+    size_bytes: int
+    checksum: str
+    is_final_output: bool
+    visibility: str
+    retention_class: str
+    status: str
+    created_at: str

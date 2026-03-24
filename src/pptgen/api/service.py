@@ -21,6 +21,17 @@ from ..runtime.workspace import WorkspaceManager
 
 _REGISTRY_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "registry.yaml"
 
+# Optional artifact services — set from server.py lifespan after Stage 6C stores are ready.
+_promoter = None
+_run_store = None
+
+
+def set_artifact_services(promoter, run_store) -> None:
+    """Wire in artifact promotion services (called from server.py lifespan)."""
+    global _promoter, _run_store
+    _promoter = promoter
+    _run_store = run_store
+
 
 def _generate_request_id() -> str:
     """Return a new UUID4 string for per-request tracing."""
@@ -93,6 +104,7 @@ def run_generate(
 
     # Resolve workspace and output path — None for preview-only requests.
     output_path: Path | None = None
+    ws = None
     if not preview_only:
         mgr = WorkspaceManager.from_settings(settings)
         ws = mgr.create(ctx.run_id)
@@ -111,4 +123,30 @@ def run_generate(
         mode=mode,
         artifacts_dir=artifacts_dir,
     )
+
+    # Promote artifacts to durable store when services are wired in (Stage 6C).
+    if _promoter is not None and _run_store is not None and not preview_only and ws is not None:
+        try:
+            from ..runs.models import RunRecord, RunSource
+            run_rec = RunRecord.create(
+                source=RunSource.API_SYNC,
+                run_id=ctx.run_id,
+                request_id=request_id,
+                mode=mode,
+                template_id=template_id,
+            )
+            _run_store.create(run_rec)
+            _promoter.promote(
+                run=run_rec,
+                workspace_root=ws.root,
+                artifacts_subdir=ws.root / "artifacts",
+                run_context_dict=ctx.as_dict(),
+                total_ms=ctx.total_ms(),
+            )
+        except Exception as exc:  # promotion is non-fatal
+            import logging
+            logging.getLogger(__name__).warning(
+                "Artifact promotion failed for run %s: %s", ctx.run_id, exc
+            )
+
     return result, ctx
