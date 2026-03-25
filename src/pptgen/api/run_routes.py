@@ -64,6 +64,9 @@ def _run_to_list_item(run: RunRecord) -> RunListItemResponse:
         total_ms=run.total_ms,
         artifact_count=run.artifact_count,
         error_category=run.error_category,
+        mode=run.mode,
+        template_id=run.template_id,
+        playbook_id=run.playbook_id,
     )
 
 
@@ -92,9 +95,10 @@ def list_runs(
     offset: int = 0,
     status: Optional[str] = None,
     source: Optional[str] = None,
+    mode: Optional[str] = None,
 ) -> RunListResponse:
     run_store = _get_run_store(request)
-    runs = run_store.list_runs(limit=limit, offset=offset, status=status, source=source)
+    runs = run_store.list_runs(limit=limit, offset=offset, status=status, source=source, mode=mode)
     return RunListResponse(
         runs=[_run_to_list_item(r) for r in runs],
         total=len(runs),

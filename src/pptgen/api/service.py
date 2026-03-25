@@ -122,6 +122,7 @@ def run_generate(
         template_id=template_id,
         mode=mode,
         artifacts_dir=artifacts_dir,
+        run_context=ctx,
     )
 
     # Promote artifacts to durable store when services are wired in (Stage 6C).

@@ -194,6 +194,9 @@ class RunListItemResponse(BaseModel):
     total_ms: float | None = None
     artifact_count: int | None = None
     error_category: str | None = None
+    mode: str = "deterministic"
+    template_id: str | None = None
+    playbook_id: str | None = None
 
 
 class RunListResponse(BaseModel):

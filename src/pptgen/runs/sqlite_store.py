@@ -150,6 +150,7 @@ class SQLiteRunStore:
         offset: int = 0,
         status: Optional[str] = None,
         source: Optional[str] = None,
+        mode: Optional[str] = None,
     ) -> list[RunRecord]:
         clauses: list[str] = []
         params: list = []
@@ -159,6 +160,9 @@ class SQLiteRunStore:
         if source:
             clauses.append("source = ?")
             params.append(source)
+        if mode:
+            clauses.append("mode = ?")
+            params.append(mode)
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         rows = self._conn.execute(
             f"SELECT * FROM runs {where} ORDER BY started_at DESC LIMIT ? OFFSET ?",

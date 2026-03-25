@@ -13,7 +13,7 @@
  * The variable is read lazily so the test suite can stub it per-test.
  */
 
-import type { GenerateRequest, GenerateResponse, TemplatesResponse } from './types'
+import type { ArtifactMetadata, FetchRunsParams, GenerateRequest, GenerateResponse, RunDetail, RunListResponse, RunMetrics, TemplatesResponse } from './types'
 import { ApiError } from './types'
 
 /** Returns the configured API base (no trailing slash). */
@@ -67,4 +67,51 @@ export async function generate(request: GenerateRequest): Promise<GenerateRespon
 /** Build a download URL for a generated file. */
 export function downloadUrl(outputPath: string): string {
   return `${getApiBase()}/v1/files/download?path=${encodeURIComponent(outputPath)}`
+}
+
+/** Fetch a single run by ID. */
+export async function fetchRun(runId: string): Promise<RunDetail> {
+  const res = await fetch(`${getApiBase()}/v1/runs/${encodeURIComponent(runId)}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch stage timing metrics for a run. */
+export async function fetchRunMetrics(runId: string): Promise<RunMetrics> {
+  const res = await fetch(`${getApiBase()}/v1/runs/${encodeURIComponent(runId)}/metrics`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch artifacts for a run. */
+export async function fetchRunArtifacts(runId: string): Promise<ArtifactMetadata[]> {
+  const res = await fetch(`${getApiBase()}/v1/runs/${encodeURIComponent(runId)}/artifacts`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch the manifest JSON for a run. */
+export async function fetchRunManifest(runId: string): Promise<unknown> {
+  const res = await fetch(`${getApiBase()}/v1/runs/${encodeURIComponent(runId)}/manifest`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Build a download URL for an artifact by its artifact_id. */
+export function artifactDownloadUrl(artifactId: string): string {
+  return `${getApiBase()}/v1/artifacts/${encodeURIComponent(artifactId)}/download`
+}
+
+/** Fetch paginated run list with optional filters. */
+export async function fetchRuns(params: FetchRunsParams = {}): Promise<RunListResponse> {
+  const qs = new URLSearchParams()
+  if (params.limit != null) qs.set('limit', String(params.limit))
+  if (params.offset != null) qs.set('offset', String(params.offset))
+  if (params.status) qs.set('status', params.status)
+  if (params.source) qs.set('source', params.source)
+  if (params.mode) qs.set('mode', params.mode)
+  const query = qs.toString() ? `?${qs.toString()}` : ''
+  const res = await fetch(`${getApiBase()}/v1/runs${query}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
 }
