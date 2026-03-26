@@ -1,0 +1,17 @@
+schema_version: 1
+primitive_id: comparison_slide
+version: 1.0.0
+layout_id: two_column
+constraints:
+  allow_extra_content: false
+slots:
+  left:
+    required: true
+    content_type: dict
+    maps_to: left
+    description: "Left comparison content (option A)"
+  right:
+    required: true
+    content_type: dict
+    maps_to: right
+    description: "Right comparison content (option B)"

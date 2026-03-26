@@ -19,6 +19,7 @@ class ErrorCategory(str, Enum):
     PLANNING = "planning"           # Slide planner failure
     RENDERING = "rendering"         # python-pptx / template failure
     CONFIGURATION = "configuration" # Missing or invalid config / registry entry
+    DESIGN_SYSTEM = "design_system" # Design token / brand / theme resolution failure
     WORKSPACE = "workspace"         # Workspace or I/O failure
     TIMEOUT = "timeout"             # Stage exceeded its time limit
     SYSTEM = "system"               # Unexpected / internal error

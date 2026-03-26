@@ -1,0 +1,45 @@
+schema_version: 1
+version: "1.0.0"
+
+# ---------------------------------------------------------------------------
+# Base Token Set — canonical design vocabulary for all presentations.
+#
+# Tokens represent semantic styling roles, not raw values.
+# Brand and theme packs may only override keys defined here.
+# ---------------------------------------------------------------------------
+
+tokens:
+  # Color — semantic roles
+  color.primary: "#000000"
+  color.secondary: "#333333"
+  color.background: "#FFFFFF"
+  color.surface: "#F5F5F5"
+  color.text.primary: "#1A1A1A"
+  color.text.secondary: "#666666"
+  color.text.inverse: "#FFFFFF"
+  color.accent: "#0070CC"
+  color.border: "#E0E0E0"
+  color.success: "#2E7D32"
+  color.warning: "#F57C00"
+  color.error: "#C62828"
+
+  # Spacing — points / EMU-independent unit
+  spacing.xs: 4
+  spacing.sm: 8
+  spacing.md: 16
+  spacing.lg: 24
+  spacing.xl: 32
+  spacing.section_gap: 48
+
+  # Typography — font families
+  font.family.primary: "Calibri"
+  font.family.secondary: "Calibri Light"
+  font.family.mono: "Courier New"
+
+  # Typography — font sizes (points)
+  font.size.title: 40
+  font.size.section: 28
+  font.size.heading: 24
+  font.size.body: 18
+  font.size.caption: 12
+  font.size.label: 10

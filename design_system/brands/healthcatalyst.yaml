@@ -1,0 +1,14 @@
+schema_version: 1
+brand_id: healthcatalyst
+version: "1.0.0"
+
+# Health Catalyst brand identity.
+# Overrides subset of base tokens; may not introduce new keys.
+
+token_overrides:
+  color.primary: "#0047AB"
+  color.secondary: "#5BA6FF"
+  color.accent: "#0066CC"
+  color.text.primary: "#1A1A2E"
+  font.family.primary: "Inter"
+  font.family.secondary: "Inter Light"

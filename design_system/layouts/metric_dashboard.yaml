@@ -1,0 +1,38 @@
+schema_version: 1
+layout_id: metric_dashboard
+version: 1.0.0
+constraints:
+  allow_extra_slots: false
+regions:
+  headline:
+    required: true
+    label: "Headline Metric"
+    position:
+      x: 5
+      y: 15
+      width: 90
+      height: 22
+  detail_left:
+    required: false
+    label: "Detail Metric Left"
+    position:
+      x: 5
+      y: 42
+      width: 27
+      height: 53
+  detail_center:
+    required: false
+    label: "Detail Metric Center"
+    position:
+      x: 36
+      y: 42
+      width: 27
+      height: 53
+  detail_right:
+    required: false
+    label: "Detail Metric Right"
+    position:
+      x: 67
+      y: 42
+      width: 27
+      height: 53

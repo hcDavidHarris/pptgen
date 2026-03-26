@@ -37,6 +37,7 @@ class TestErrorCategory:
         expected = {
             "validation", "connector", "ai_provider", "planning",
             "rendering", "configuration", "workspace", "timeout", "system",
+            "design_system",
         }
         actual = {c.value for c in ErrorCategory}
         assert actual == expected

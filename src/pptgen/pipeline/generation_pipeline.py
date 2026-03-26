@@ -2,7 +2,8 @@
 
 Current pipeline::
 
-    generate_presentation(input_text, output_path=None, template_id=None, mode="deterministic")
+    generate_presentation(input_text, output_path=None, template_id=None, mode="deterministic",
+                          theme_id=None)
         │
         ├─ validate input type and mode
         ├─ normalise (strip)
@@ -13,6 +14,14 @@ Current pipeline::
         ├─ set spec.template             →  resolved template_id
         ├─ plan_slides()                 →  SlidePlan
         ├─ convert_spec_to_deck()        →  deck_definition (dict)
+        ├─ [if deck declares primitive]
+        │   └─ resolve primitive         →  ResolvedSlidePrimitive
+        │       injects layout + slots   →  deck_definition updated
+        ├─ [if deck declares layout]
+        │   └─ resolve layout            →  ResolvedLayout (validates slots)
+        ├─ [if theme resolved]
+        │   ├─ resolve design tokens     →  ResolvedStyleMap
+        │   └─ substitute token refs     →  deck_definition (token refs replaced)
         ├─ [if output_path given]
         │   └─ render()                  →  .pptx file written
         └─ return PipelineResult(stage="rendered" | "deck_planned", ...)
@@ -20,12 +29,23 @@ Current pipeline::
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from ..artifacts import write_artifacts
 from ..config import get_settings
+from ..design_system import (
+    DesignSystemRegistry,
+    LayoutResolver,
+    PrimitiveResolver,
+    ResolvedLayout,
+    ResolvedSlidePrimitive,
+    ResolvedStyleMap,
+    TokenResolver,
+)
+from ..design_system.exceptions import DesignSystemError
 from ..errors import InputSizeError, PptgenError as _PptgenError
 from ..input_router import InputRouterError, route_input
 from ..loaders.yaml_loader import parse_deck
@@ -77,6 +97,9 @@ class PipelineResult:
     output_path: str | None = field(default=None)
     notes: str = field(default="")
     artifact_paths: dict[str, str] | None = field(default=None)
+    resolved_style_map: ResolvedStyleMap | None = field(default=None)
+    resolved_layout: ResolvedLayout | None = field(default=None)
+    resolved_primitive: ResolvedSlidePrimitive | None = field(default=None)
 
 
 def generate_presentation(
@@ -86,6 +109,7 @@ def generate_presentation(
     mode: str | ExecutionMode = DETERMINISTIC,
     artifacts_dir: Path | None = None,
     run_context: RunContext | None = None,
+    theme_id: str | None = None,
 ) -> PipelineResult:
     """Entry point for the presentation generation pipeline.
 
@@ -103,6 +127,10 @@ def generate_presentation(
         run_context: Optional :class:`~pptgen.runtime.run_context.RunContext` for
                      stage timing and run metadata.  When provided, stage timings
                      and ``playbook_id`` are populated in-place.
+        theme_id:    Optional design system theme identifier (e.g. ``"executive"``).
+                     Overrides the platform default theme from settings.  When
+                     resolved, ``token.<key>`` references in the deck definition
+                     are substituted before rendering.
 
     Returns:
         :class:`PipelineResult` with ``stage="rendered"`` or ``"deck_planned"``.
@@ -179,6 +207,68 @@ def generate_presentation(
     if run_context:
         run_context.end_stage("convert_spec")
 
+    # Primitive resolution (Phase 9 Stage 3).
+    # Reads optional 'primitive' and 'content' keys from deck_definition.
+    # On success, injects 'layout' and 'slots' so the layout stage runs normally.
+    # Templates without a primitive declaration are unaffected.
+    resolved_primitive: ResolvedSlidePrimitive | None = None
+    declared_primitive = (
+        deck_definition.get("primitive") if isinstance(deck_definition, dict) else None
+    )
+    if declared_primitive:
+        if run_context:
+            run_context.start_stage("resolve_primitive")
+        try:
+            resolved_primitive = _resolve_primitive(
+                str(declared_primitive), deck_definition, settings
+            )
+            # Inject layout + slots so the existing layout stage handles them.
+            deck_definition = {
+                **deck_definition,
+                "layout": resolved_primitive.layout_id,
+                "slots": resolved_primitive.resolved_slots,
+            }
+        except DesignSystemError as exc:
+            raise PipelineError(str(exc)) from exc
+        finally:
+            if run_context:
+                run_context.end_stage("resolve_primitive")
+
+    # Layout resolution (Phase 9 Stage 2).
+    # Reads optional 'layout' and 'slots' keys from deck_definition.
+    # Templates without a layout declaration are unaffected.
+    resolved_layout: ResolvedLayout | None = None
+    declared_layout = deck_definition.get("layout") if isinstance(deck_definition, dict) else None
+    if declared_layout:
+        if run_context:
+            run_context.start_stage("resolve_layout")
+        try:
+            resolved_layout = _resolve_layout(
+                str(declared_layout), deck_definition, settings
+            )
+        except DesignSystemError as exc:
+            raise PipelineError(str(exc)) from exc
+        finally:
+            if run_context:
+                run_context.end_stage("resolve_layout")
+
+    # Design system token resolution (Phase 9 Stage 1).
+    # Precedence: run-time theme_id → settings.default_theme → no theme.
+    resolved_style_map: ResolvedStyleMap | None = None
+    effective_theme = theme_id or settings.default_theme or ""
+    if effective_theme:
+        if run_context:
+            run_context.start_stage("resolve_tokens")
+        try:
+            resolved_style_map = _resolve_design_tokens(effective_theme)
+            resolver = TokenResolver()
+            deck_definition = resolver.resolve_references(deck_definition, resolved_style_map)
+        except DesignSystemError as exc:
+            raise PipelineError(str(exc)) from exc
+        finally:
+            if run_context:
+                run_context.end_stage("resolve_tokens")
+
     # Compose diagnostic notes
     notes_parts: list[str] = []
     if not normalised:
@@ -198,6 +288,32 @@ def generate_presentation(
                 deck_definition,
             )
             artifact_paths = {k: str(v) for k, v in raw_paths.items()}
+            if resolved_style_map is not None:
+                snapshot_path = Path(artifacts_dir) / "resolved_theme_snapshot.json"
+                snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                snapshot_path.write_text(
+                    json.dumps(resolved_style_map.to_dict(), indent=2),
+                    encoding="utf-8",
+                )
+                artifact_paths["resolved_theme_snapshot"] = str(snapshot_path)
+            if resolved_layout is not None:
+                layout_snapshot_path = Path(artifacts_dir) / "resolved_layout_snapshot.json"
+                layout_snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                layout_snapshot_path.write_text(
+                    json.dumps(resolved_layout.to_dict(), indent=2),
+                    encoding="utf-8",
+                )
+                artifact_paths["resolved_layout_snapshot"] = str(layout_snapshot_path)
+            if resolved_primitive is not None:
+                primitive_snapshot_path = (
+                    Path(artifacts_dir) / "resolved_primitive_snapshot.json"
+                )
+                primitive_snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                primitive_snapshot_path.write_text(
+                    json.dumps(resolved_primitive.to_dict(), indent=2),
+                    encoding="utf-8",
+                )
+                artifact_paths["resolved_primitive_snapshot"] = str(primitive_snapshot_path)
         except OSError as exc:
             raise PipelineError(f"Artifact export failed: {exc}") from exc
 
@@ -213,6 +329,9 @@ def generate_presentation(
             deck_definition=deck_definition,
             notes=notes,
             artifact_paths=artifact_paths,
+            resolved_style_map=resolved_style_map,
+            resolved_layout=resolved_layout,
+            resolved_primitive=resolved_primitive,
         )
 
     if run_context:
@@ -233,6 +352,9 @@ def generate_presentation(
         output_path=str(output_path),
         notes=notes,
         artifact_paths=artifact_paths,
+        resolved_style_map=resolved_style_map,
+        resolved_layout=resolved_layout,
+        resolved_primitive=resolved_primitive,
     )
 
 
@@ -264,6 +386,67 @@ def _validate_template_id(template_id: str) -> None:
             f"Template '{template_id}' is not registered.  "
             f"Registered templates: {', '.join(registered)}."
         )
+
+
+# ---------------------------------------------------------------------------
+# Design system helpers
+# ---------------------------------------------------------------------------
+
+def _resolve_design_tokens(theme_id: str) -> ResolvedStyleMap:
+    """Load the design system and resolve *theme_id* to a :class:`ResolvedStyleMap`.
+
+    Raises:
+        DesignSystemError: Propagated to caller — results in a PipelineError.
+    """
+    settings = get_settings()
+    registry = DesignSystemRegistry(settings.design_system_root)
+    base = registry.load_base_tokens()
+    theme = registry.get_theme(theme_id)
+    brand = registry.get_brand(theme.brand_id)
+    resolver = TokenResolver()
+    return resolver.resolve(base, brand, theme)
+
+
+def _resolve_primitive(
+    primitive_id: str,
+    deck_definition: dict[str, Any],
+    settings: Any,
+) -> ResolvedSlidePrimitive:
+    """Load the primitive registry and resolve *primitive_id* against the
+    declared content fields.
+
+    Content is read from ``deck_definition["content"]``; an empty dict is used
+    when the key is absent (which will fail required-field validation).
+
+    Raises:
+        DesignSystemError: Propagated to caller — results in a PipelineError.
+    """
+    registry = DesignSystemRegistry(settings.design_system_root)
+    content = deck_definition.get("content") or {}
+    if not isinstance(content, dict):
+        content = {}
+    resolver = PrimitiveResolver()
+    return resolver.resolve(primitive_id, content, registry)
+
+
+def _resolve_layout(
+    layout_id: str,
+    deck_definition: dict[str, Any],
+    settings: Any,
+) -> ResolvedLayout:
+    """Load the layout registry and resolve *layout_id* against the declared slots.
+
+    Slots are read from ``deck_definition["slots"]`` if present; an empty list
+    is used when the key is absent (will fail required-region validation).
+
+    Raises:
+        DesignSystemError: Propagated to caller — results in a PipelineError.
+    """
+    registry = DesignSystemRegistry(settings.design_system_root)
+    raw_slots = deck_definition.get("slots") or {}
+    provided_slots = list(raw_slots.keys()) if isinstance(raw_slots, dict) else []
+    resolver = LayoutResolver()
+    return resolver.resolve(layout_id, provided_slots, registry)
 
 
 # ---------------------------------------------------------------------------

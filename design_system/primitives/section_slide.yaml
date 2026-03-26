@@ -1,0 +1,17 @@
+schema_version: 1
+primitive_id: section_slide
+version: 1.0.0
+layout_id: single_column
+constraints:
+  allow_extra_content: false
+slots:
+  heading:
+    required: true
+    content_type: string
+    maps_to: content
+    description: "Section heading text"
+  description:
+    required: false
+    content_type: string
+    maps_to: content
+    description: "Optional brief section description"

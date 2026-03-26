@@ -1,0 +1,14 @@
+schema_version: 1
+theme_id: executive
+version: "1.0.0"
+brand_id: healthcatalyst
+
+# Executive theme — large typography, generous spacing.
+# Intended for leadership briefings and board presentations.
+
+token_overrides:
+  font.size.title: 48
+  font.size.section: 32
+  font.size.body: 20
+  spacing.xl: 48
+  spacing.section_gap: 64

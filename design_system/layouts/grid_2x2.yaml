@@ -1,0 +1,38 @@
+schema_version: 1
+layout_id: grid_2x2
+version: 1.0.0
+constraints:
+  allow_extra_slots: false
+regions:
+  top_left:
+    required: true
+    label: "Top Left"
+    position:
+      x: 5
+      y: 15
+      width: 42
+      height: 38
+  top_right:
+    required: true
+    label: "Top Right"
+    position:
+      x: 53
+      y: 15
+      width: 42
+      height: 38
+  bottom_left:
+    required: true
+    label: "Bottom Left"
+    position:
+      x: 5
+      y: 57
+      width: 42
+      height: 38
+  bottom_right:
+    required: true
+    label: "Bottom Right"
+    position:
+      x: 53
+      y: 57
+      width: 42
+      height: 38

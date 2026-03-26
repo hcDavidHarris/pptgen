@@ -1,0 +1,17 @@
+schema_version: 1
+primitive_id: title_slide
+version: 1.0.0
+layout_id: single_column
+constraints:
+  allow_extra_content: false
+slots:
+  title:
+    required: true
+    content_type: string
+    maps_to: content
+    description: "Main presentation title"
+  subtitle:
+    required: false
+    content_type: string
+    maps_to: content
+    description: "Optional subtitle or tagline"

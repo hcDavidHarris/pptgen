@@ -184,6 +184,16 @@ class RuntimeSettings:
     log_json_format: bool = False
 
     # ------------------------------------------------------------------
+    # Design System (Phase 9 Stage 1)
+    # ------------------------------------------------------------------
+    #: Path to the design_system/ directory.  Empty string = use the
+    #: ``design_system/`` directory adjacent to the project source root.
+    design_system_path: str = ""
+    #: Platform-level default theme ID.  Applied when no theme is
+    #: specified at run-time or in the template.  Empty string = no theme.
+    default_theme: str = ""
+
+    # ------------------------------------------------------------------
     # Computed properties
     # ------------------------------------------------------------------
 
@@ -217,6 +227,19 @@ class RuntimeSettings:
         """
         base = self.workspace_base or str(Path(tempfile.gettempdir()) / "pptgen_api")
         return Path(base)
+
+    @property
+    def design_system_root(self) -> Path:
+        """Absolute path to the design_system/ directory.
+
+        Returns the configured override, or the ``design_system/`` directory
+        adjacent to the project source root (``src/pptgen/../../design_system``).
+        """
+        if self.design_system_path:
+            return Path(self.design_system_path)
+        # Default: design_system/ at the project root, relative to this file
+        # (src/pptgen/config/settings.py → ../../../../design_system/)
+        return Path(__file__).parent.parent.parent.parent / "design_system"
 
     @property
     def fingerprint(self) -> str:
@@ -309,6 +332,8 @@ class RuntimeSettings:
             ),
             log_level=os.environ.get("PPTGEN_LOG_LEVEL", "INFO"),
             log_json_format=os.environ.get("PPTGEN_LOG_JSON_FORMAT", "").lower() in ("1", "true", "yes"),
+            design_system_path=os.environ.get("PPTGEN_DESIGN_SYSTEM_PATH", ""),
+            default_theme=os.environ.get("PPTGEN_DEFAULT_THEME", ""),
         )
 
 

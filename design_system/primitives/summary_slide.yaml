@@ -1,0 +1,22 @@
+schema_version: 1
+primitive_id: summary_slide
+version: 1.0.0
+layout_id: single_column
+constraints:
+  allow_extra_content: false
+slots:
+  title:
+    required: true
+    content_type: string
+    maps_to: content
+    description: "Summary heading"
+  key_points:
+    required: true
+    content_type: list
+    maps_to: content
+    description: "Key takeaway points"
+  next_steps:
+    required: false
+    content_type: list
+    maps_to: content
+    description: "Optional next steps or actions"

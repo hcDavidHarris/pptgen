@@ -1,0 +1,22 @@
+schema_version: 1
+layout_id: two_column
+version: 1.0.0
+constraints:
+  allow_extra_slots: false
+regions:
+  left:
+    required: true
+    label: "Left Column"
+    position:
+      x: 5
+      y: 15
+      width: 42
+      height: 80
+  right:
+    required: true
+    label: "Right Column"
+    position:
+      x: 53
+      y: 15
+      width: 42
+      height: 80
