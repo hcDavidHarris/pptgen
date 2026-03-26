@@ -246,6 +246,103 @@ class SQLiteRunStore:
             "avg_ms": row["avg_ms"],
         }
 
+    # ------------------------------------------------------------------
+    # Template analytics queries
+    # ------------------------------------------------------------------
+
+    def _since_iso(self, days: int) -> str:
+        from datetime import timedelta
+        return (datetime.now(tz=timezone.utc) - timedelta(days=days)).isoformat()
+
+    def get_template_usage_summary(self, template_id: str, days: int = 30) -> dict:
+        """Return aggregate run counts for *template_id* over the last *days* days."""
+        since = self._since_iso(days)
+        row = self._conn.execute(
+            """
+            SELECT
+                COUNT(*)                                                          AS total_runs,
+                SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END)            AS completed_runs,
+                SUM(CASE WHEN status = 'failed'    THEN 1 ELSE 0 END)            AS failed_runs,
+                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END)            AS cancelled_runs
+            FROM runs
+            WHERE template_id = ?
+              AND started_at >= ?
+            """,
+            (template_id, since),
+        ).fetchone()
+        total = row["total_runs"] or 0
+        failed = row["failed_runs"] or 0
+        return {
+            "template_id": template_id,
+            "date_window_days": days,
+            "total_runs": total,
+            "completed_runs": row["completed_runs"] or 0,
+            "failed_runs": failed,
+            "cancelled_runs": row["cancelled_runs"] or 0,
+            "failure_rate": round(failed / total, 4) if total > 0 else None,
+        }
+
+    def get_template_version_usage(self, template_id: str, days: int = 30) -> list[dict]:
+        """Return per-version run counts for *template_id* over the last *days* days."""
+        since = self._since_iso(days)
+        rows = self._conn.execute(
+            """
+            SELECT
+                template_version,
+                COUNT(*)                                                       AS total_runs,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)            AS failed_runs,
+                MIN(started_at)                                                AS first_seen_at,
+                MAX(started_at)                                                AS last_seen_at
+            FROM runs
+            WHERE template_id = ?
+              AND started_at >= ?
+              AND template_version IS NOT NULL
+            GROUP BY template_version
+            ORDER BY total_runs DESC
+            """,
+            (template_id, since),
+        ).fetchall()
+        result = []
+        for r in rows:
+            total = r["total_runs"] or 0
+            failed = r["failed_runs"] or 0
+            result.append({
+                "template_version": r["template_version"],
+                "total_runs": total,
+                "failed_runs": failed,
+                "failure_rate": round(failed / total, 4) if total > 0 else None,
+                "first_seen_at": r["first_seen_at"],
+                "last_seen_at": r["last_seen_at"],
+            })
+        return result
+
+    def get_template_usage_trend(self, template_id: str, days: int = 30) -> list[dict]:
+        """Return daily run counts per version for *template_id* over the last *days* days."""
+        since = self._since_iso(days)
+        rows = self._conn.execute(
+            """
+            SELECT
+                DATE(started_at) AS date,
+                template_version,
+                COUNT(*)         AS run_count
+            FROM runs
+            WHERE template_id = ?
+              AND started_at >= ?
+              AND template_version IS NOT NULL
+            GROUP BY DATE(started_at), template_version
+            ORDER BY date ASC, template_version
+            """,
+            (template_id, since),
+        ).fetchall()
+        return [
+            {
+                "date": r["date"],
+                "template_version": r["template_version"],
+                "run_count": r["run_count"],
+            }
+            for r in rows
+        ]
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

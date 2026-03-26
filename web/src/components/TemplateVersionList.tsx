@@ -1,7 +1,13 @@
-import type { TemplateVersionDetail } from '../types'
+import type { TemplateVersionDetail, TemplateVersionWithGovernance } from '../types'
+
+type AnyVersion = TemplateVersionDetail | TemplateVersionWithGovernance
+
+function hasGovernance(v: AnyVersion): v is TemplateVersionWithGovernance {
+  return 'is_default' in v
+}
 
 interface Props {
-  versions: TemplateVersionDetail[]
+  versions: AnyVersion[]
 }
 
 export function TemplateVersionList({ versions }: Props) {
@@ -21,19 +27,39 @@ export function TemplateVersionList({ versions }: Props) {
         </tr>
       </thead>
       <tbody>
-        {[...versions].reverse().map((v) => (
-          <tr key={v.version} className="template-version-table__row">
-            <td><code>{v.version}</code></td>
-            <td>
-              <code className="template-version-table__hash" title={v.template_revision_hash}>
-                {v.template_revision_hash}
-              </code>
-            </td>
-            <td>{v.ai_mode}</td>
-            <td>{v.input_contract_version ?? '—'}</td>
-            <td>{v.playbook_path ?? '—'}</td>
-          </tr>
-        ))}
+        {[...versions].reverse().map((v) => {
+          const isDefault = hasGovernance(v) && v.is_default
+          const isDeprecated = hasGovernance(v) && v.deprecated_at != null
+
+          return (
+            <tr
+              key={v.version}
+              className={`template-version-table__row${isDeprecated ? ' template-version-table__row--deprecated' : ''}`}
+            >
+              <td>
+                <code>{v.version}</code>
+                {isDefault && (
+                  <span className="version-badge version-badge--default" aria-label="default version">
+                    default
+                  </span>
+                )}
+                {isDeprecated && (
+                  <span className="version-badge version-badge--deprecated" aria-label="deprecated version">
+                    deprecated
+                  </span>
+                )}
+              </td>
+              <td>
+                <code className="template-version-table__hash" title={v.template_revision_hash}>
+                  {v.template_revision_hash}
+                </code>
+              </td>
+              <td>{v.ai_mode}</td>
+              <td>{v.input_contract_version ?? '—'}</td>
+              <td>{v.playbook_path ?? '—'}</td>
+            </tr>
+          )
+        })}
       </tbody>
     </table>
   )

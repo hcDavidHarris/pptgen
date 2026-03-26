@@ -79,6 +79,55 @@ class StructuredLogger:
             checksum=checksum,
         )
 
+    def template_version_promoted(
+        self,
+        template_id: str,
+        version: str,
+        previous_default: Optional[str] = None,
+        actor: Optional[str] = None,
+        **kw,
+    ) -> None:
+        self.event(
+            "template_version_promoted",
+            template_id=template_id,
+            version=version,
+            previous_default=previous_default,
+            actor=actor,
+            **kw,
+        )
+
+    def template_version_deprecated(
+        self,
+        template_id: str,
+        version: str,
+        actor: Optional[str] = None,
+        **kw,
+    ) -> None:
+        self.event(
+            "template_version_deprecated",
+            template_id=template_id,
+            version=version,
+            actor=actor,
+            **kw,
+        )
+
+    def template_lifecycle_changed(
+        self,
+        template_id: str,
+        previous_lifecycle: str,
+        new_lifecycle: str,
+        actor: Optional[str] = None,
+        **kw,
+    ) -> None:
+        self.event(
+            "template_lifecycle_changed",
+            template_id=template_id,
+            previous_lifecycle=previous_lifecycle,
+            new_lifecycle=new_lifecycle,
+            actor=actor,
+            **kw,
+        )
+
     def template_resolved(
         self,
         template_id: str,

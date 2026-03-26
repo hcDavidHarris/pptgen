@@ -206,3 +206,94 @@ export async function fetchTemplateRuns(
   if (!res.ok) throw await parseErrorResponse(res)
   return res.json()
 }
+
+// ---------------------------------------------------------------------------
+// Template Governance (Phase 8 Stage 3)
+// ---------------------------------------------------------------------------
+
+export async function fetchTemplateVersionsWithGovernance(templateId: string): Promise<import('./types').TemplateVersionWithGovernance[]> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/versions`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function fetchGovernanceState(templateId: string): Promise<import('./types').GovernanceState> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/governance`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function fetchGovernanceAudit(templateId: string, limit = 100): Promise<import('./types').GovernanceAuditEvent[]> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/governance/audit?limit=${limit}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function promoteVersion(
+  templateId: string,
+  version: string,
+  body: import('./types').PromoteVersionRequest,
+): Promise<import('./types').GovernanceActionResponse> {
+  const res = await fetch(
+    `${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(version)}/promote`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function deprecateVersion(
+  templateId: string,
+  version: string,
+  body: import('./types').DeprecateVersionRequest,
+): Promise<import('./types').GovernanceActionResponse> {
+  const res = await fetch(
+    `${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/versions/${encodeURIComponent(version)}/deprecate`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+// ---------------------------------------------------------------------------
+// Template Usage Analytics (Phase 8 Analytics)
+// ---------------------------------------------------------------------------
+
+export async function fetchTemplateAnalyticsSummary(
+  templateId: string,
+  days = 30,
+): Promise<import('./types').TemplateUsageSummary> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/analytics/summary?days=${days}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function fetchTemplateAnalyticsVersions(
+  templateId: string,
+  days = 30,
+): Promise<import('./types').TemplateVersionUsageResponse> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/analytics/versions?days=${days}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function fetchTemplateAnalyticsTrend(
+  templateId: string,
+  days = 30,
+): Promise<import('./types').TemplateUsageTrendResponse> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/analytics/trend?days=${days}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+export async function changeLifecycle(
+  templateId: string,
+  body: import('./types').LifecycleChangeRequest,
+): Promise<import('./types').GovernanceActionResponse> {
+  const res = await fetch(
+    `${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/lifecycle`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+  )
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}

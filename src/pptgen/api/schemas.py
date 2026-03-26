@@ -295,6 +295,73 @@ class TemplateDetailResponse(BaseModel):
     versions: list[str]  # ordered list of version strings (ascending semver)
 
 
+# ---------------------------------------------------------------------------
+# Governance schemas (Phase 8 Stage 3)
+# ---------------------------------------------------------------------------
+
+class PromoteVersionRequest(BaseModel):
+    """Body for ``POST /v1/templates/{id}/versions/{version}/promote``."""
+    reason: str | None = None
+    actor: str | None = None
+
+
+class DeprecateVersionRequest(BaseModel):
+    """Body for ``POST /v1/templates/{id}/versions/{version}/deprecate``."""
+    reason: str
+    actor: str | None = None
+
+
+class LifecycleChangeRequest(BaseModel):
+    """Body for ``POST /v1/templates/{id}/lifecycle``."""
+    lifecycle_status: str
+    reason: str | None = None
+    actor: str | None = None
+
+
+class GovernanceActionResponse(BaseModel):
+    """Response for promote / deprecate / lifecycle-change actions."""
+    template_id: str
+    version: str | None = None
+    action: str
+    accepted: bool
+    message: str
+    previous_default: str | None = None     # set on promote
+
+
+class GovernanceStateResponse(BaseModel):
+    """Response for ``GET /v1/templates/{id}/governance``."""
+    template_id: str
+    lifecycle_status: str                    # effective lifecycle
+    default_version: str | None = None
+    deprecated_versions: list[str] = []
+
+
+class GovernanceAuditEvent(BaseModel):
+    """A single audit trail entry."""
+    event_type: str
+    template_id: str
+    template_version: str | None = None
+    actor: str | None = None
+    reason: str | None = None
+    timestamp: str
+    metadata: dict | None = None
+
+
+# Extended version info with governance overlay
+class TemplateVersionWithGovernance(BaseModel):
+    """Version info including governance state, for operator UI."""
+    version: str
+    template_revision_hash: str
+    template_path: str | None = None
+    playbook_path: str | None = None
+    input_contract_version: str | None = None
+    ai_mode: str = "optional"
+    is_default: bool = False
+    deprecated_at: str | None = None
+    deprecation_reason: str | None = None
+    promotion_timestamp: str | None = None
+
+
 class TemplateRunItem(BaseModel):
     """A single run entry in a template runs response."""
 
@@ -319,3 +386,54 @@ class TemplateRunsResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ---------------------------------------------------------------------------
+# Template Usage Analytics schemas (Phase 8 Analytics)
+# ---------------------------------------------------------------------------
+
+class TemplateUsageSummaryResponse(BaseModel):
+    """Response for ``GET /v1/templates/{template_id}/analytics/summary``."""
+
+    template_id: str
+    date_window_days: int
+    total_runs: int
+    completed_runs: int
+    failed_runs: int
+    cancelled_runs: int
+    failure_rate: float | None = None   # None when total_runs == 0
+
+
+class TemplateVersionUsageItem(BaseModel):
+    """Per-version analytics row."""
+
+    template_version: str
+    total_runs: int
+    failed_runs: int
+    failure_rate: float | None = None
+    first_seen_at: str | None = None
+    last_seen_at: str | None = None
+
+
+class TemplateVersionUsageResponse(BaseModel):
+    """Response for ``GET /v1/templates/{template_id}/analytics/versions``."""
+
+    template_id: str
+    date_window_days: int
+    versions: list[TemplateVersionUsageItem]
+
+
+class TemplateUsageTrendItem(BaseModel):
+    """One data point in the daily adoption trend."""
+
+    date: str
+    template_version: str
+    run_count: int
+
+
+class TemplateUsageTrendResponse(BaseModel):
+    """Response for ``GET /v1/templates/{template_id}/analytics/trend``."""
+
+    template_id: str
+    date_window_days: int
+    trend: list[TemplateUsageTrendItem]

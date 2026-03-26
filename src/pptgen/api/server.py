@@ -78,14 +78,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Wire promoter into sync path
     set_artifact_services(promoter, run_store)
 
-    # Template registry (Phase 8 Stage 1)
+    # Template registry + governance store (Phase 8 Stage 1 + Stage 3)
     import logging as _tlog
     from ..templates.store import load_registry as _load_template_registry
+    from ..templates.governance import GovernanceStore as _GovernanceStore
     try:
         app.state.template_registry = _load_template_registry()
     except Exception as _exc:
         _tlog.getLogger(__name__).warning("Template registry not loaded: %s", _exc)
         app.state.template_registry = None
+    governance_store = _GovernanceStore.from_settings(settings)
+    app.state.governance_store = governance_store
 
     wm = WorkspaceManager.from_settings(settings)
     worker = JobWorker(
@@ -118,6 +121,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     job_store.close()
     run_store.close()
     artifact_store.close()
+    governance_store.close()
     # Reset module-level artifact services
     set_artifact_services(None, None)
 

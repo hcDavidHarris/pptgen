@@ -42,4 +42,19 @@ class AbstractRunStore(Protocol):
         since_iso: Optional[str] = None,
     ) -> list[RunRecord]: ...
     def run_stats(self, since_iso: str) -> dict: ...
+    def get_template_usage_summary(
+        self,
+        template_id: str,
+        days: int = 30,
+    ) -> dict: ...
+    def get_template_version_usage(
+        self,
+        template_id: str,
+        days: int = 30,
+    ) -> list[dict]: ...
+    def get_template_usage_trend(
+        self,
+        template_id: str,
+        days: int = 30,
+    ) -> list[dict]: ...
     def close(self) -> None: ...

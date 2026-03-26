@@ -4,7 +4,8 @@
       "Bash(python -m pytest tests/unit/test_retry_api.py tests/unit/test_rerun_api.py tests/unit/test_cancel_api.py tests/unit/test_jobs_list_api.py -v)",
       "Bash(python -m pytest tests/ -q)",
       "Bash(npx vitest:*)",
-      "Bash(python -m pytest tests/unit/test_template_runs_query.py tests/unit/test_run_template_metadata.py -v)"
+      "Bash(python -m pytest tests/unit/test_template_runs_query.py tests/unit/test_run_template_metadata.py -v)",
+      "Bash(python -c \"from pptgen.runs.models import RunRecord, RunSource; import inspect; print\\(inspect.signature\\(RunRecord.create\\)\\)\")"
     ]
   }
 }

@@ -12,6 +12,11 @@ class TemplateVersion:
 
     ``template_revision_hash`` is derived from template_id + version + manifest
     entry fields so that replay correctness can be verified even after config drift.
+
+    Governance fields (``is_default``, ``deprecated_at``, ``deprecation_reason``,
+    ``promotion_timestamp``) are overlaid at runtime from the
+    :class:`~pptgen.templates.governance.GovernanceStore` — they are not part of
+    the manifest and default to "no governance state" here.
     """
 
     version_id: str              # deterministic UUID5 from (template_id, version)
@@ -27,6 +32,12 @@ class TemplateVersion:
     created_at: datetime = field(
         default_factory=lambda: datetime.now(tz=timezone.utc)
     )
+
+    # Governance fields (Phase 8 Stage 3) — overlaid from GovernanceStore at runtime
+    is_default: bool = False
+    deprecated_at: Optional[datetime] = None
+    deprecation_reason: Optional[str] = None
+    promotion_timestamp: Optional[datetime] = None
 
 
 @dataclass

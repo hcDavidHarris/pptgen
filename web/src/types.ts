@@ -292,6 +292,106 @@ export interface FetchTemplateRunsParams {
   offset?: number
 }
 
+// ---------------------------------------------------------------------------
+// Template Governance types (Phase 8 Stage 3)
+// ---------------------------------------------------------------------------
+
+export interface TemplateVersionWithGovernance {
+  version: string
+  template_revision_hash: string
+  template_path: string | null
+  playbook_path: string | null
+  input_contract_version: string | null
+  ai_mode: string
+  is_default: boolean
+  deprecated_at: string | null
+  deprecation_reason: string | null
+  promotion_timestamp: string | null
+}
+
+export interface GovernanceState {
+  template_id: string
+  lifecycle_status: string
+  default_version: string | null
+  deprecated_versions: string[]
+}
+
+export interface GovernanceAuditEvent {
+  event_type: string
+  template_id: string
+  template_version: string | null
+  actor: string | null
+  reason: string | null
+  timestamp: string
+  metadata: Record<string, unknown> | null
+}
+
+export interface GovernanceActionResponse {
+  template_id: string
+  version: string | null
+  action: string
+  accepted: boolean
+  message: string
+  previous_default: string | null
+}
+
+export interface PromoteVersionRequest {
+  reason?: string
+  actor?: string
+}
+
+export interface DeprecateVersionRequest {
+  reason: string
+  actor?: string
+}
+
+export interface LifecycleChangeRequest {
+  lifecycle_status: string
+  reason?: string
+  actor?: string
+}
+
+// ---------------------------------------------------------------------------
+// Template Usage Analytics types (Phase 8 Analytics)
+// ---------------------------------------------------------------------------
+
+export interface TemplateUsageSummary {
+  template_id: string
+  date_window_days: number
+  total_runs: number
+  completed_runs: number
+  failed_runs: number
+  cancelled_runs: number
+  failure_rate: number | null
+}
+
+export interface TemplateVersionUsageItem {
+  template_version: string
+  total_runs: number
+  failed_runs: number
+  failure_rate: number | null
+  first_seen_at: string | null
+  last_seen_at: string | null
+}
+
+export interface TemplateVersionUsageResponse {
+  template_id: string
+  date_window_days: number
+  versions: TemplateVersionUsageItem[]
+}
+
+export interface TemplateUsageTrendItem {
+  date: string
+  template_version: string
+  run_count: number
+}
+
+export interface TemplateUsageTrendResponse {
+  template_id: string
+  date_window_days: number
+  trend: TemplateUsageTrendItem[]
+}
+
 /** Structured error thrown by the API client. */
 export class ApiError extends Error {
   readonly requestId: string | null
