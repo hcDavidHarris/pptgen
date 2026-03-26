@@ -25,6 +25,7 @@ from .job_routes import router as jobs_router
 from .routes import router
 from .run_routes import router as runs_router
 from .system_routes import router as system_router
+from .template_routes import router as template_router
 
 
 @asynccontextmanager
@@ -76,6 +77,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Wire promoter into sync path
     set_artifact_services(promoter, run_store)
+
+    # Template registry (Phase 8 Stage 1)
+    import logging as _tlog
+    from ..templates.store import load_registry as _load_template_registry
+    try:
+        app.state.template_registry = _load_template_registry()
+    except Exception as _exc:
+        _tlog.getLogger(__name__).warning("Template registry not loaded: %s", _exc)
+        app.state.template_registry = None
 
     wm = WorkspaceManager.from_settings(settings)
     worker = JobWorker(
@@ -140,6 +150,7 @@ app.include_router(jobs_router)
 app.include_router(runs_router)
 app.include_router(artifacts_router)
 app.include_router(system_router)
+app.include_router(template_router)
 
 
 if __name__ == "__main__":  # pragma: no cover

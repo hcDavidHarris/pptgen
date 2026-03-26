@@ -99,6 +99,36 @@ export function RunDetailPage() {
         />
       </section>
 
+      {(run.template_id || run.template_version) && (
+        <section className="run-detail__template card" aria-label="Template info">
+          <h3>Template</h3>
+          <dl className="run-summary-card__fields">
+            {run.template_id && (
+              <div className="run-summary-card__field">
+                <dt>Template ID</dt>
+                <dd>
+                  <NavLink to={`/templates/${run.template_id}`}>
+                    {run.template_id}
+                  </NavLink>
+                </dd>
+              </div>
+            )}
+            {run.template_version && (
+              <div className="run-summary-card__field">
+                <dt>Version</dt>
+                <dd>{run.template_version}</dd>
+              </div>
+            )}
+            {run.template_revision_hash && (
+              <div className="run-summary-card__field">
+                <dt>Revision Hash</dt>
+                <dd><code>{run.template_revision_hash}</code></dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      )}
+
       {run.manifest_path && (
         <ManifestViewer runId={run.run_id} />
       )}

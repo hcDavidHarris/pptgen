@@ -13,7 +13,7 @@
  * The variable is read lazily so the test suite can stub it per-test.
  */
 
-import type { ArtifactMetadata, FetchJobsParams, FetchRunsParams, GenerateRequest, GenerateResponse, JobCancelResponse, JobListResponse, RunActionResponse, RunCompareData, RunDetail, RunListResponse, RunMetrics, RunStats, SystemHealth, TemplatesResponse } from './types'
+import type { ArtifactMetadata, FetchJobsParams, FetchRunsParams, FetchTemplateRunsParams, GenerateRequest, GenerateResponse, JobCancelResponse, JobListResponse, RunActionResponse, RunCompareData, RunDetail, RunListResponse, RunMetrics, RunStats, SystemHealth, TemplateDetail, TemplateRunsResponse, TemplatesResponse, TemplateVersionDetail } from './types'
 import { ApiError } from './types'
 
 /** Returns the configured API base (no trailing slash). */
@@ -172,6 +172,37 @@ export async function fetchJobs(params: FetchJobsParams = {}): Promise<JobListRe
   if (params.status) qs.set('status', params.status)
   const query = qs.toString() ? `?${qs.toString()}` : ''
   const res = await fetch(`${getApiBase()}/v1/jobs${query}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch template metadata and version list for a single template. */
+export async function fetchTemplateDetail(templateId: string): Promise<TemplateDetail> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch full version objects (with hash, paths) for a template. */
+export async function fetchTemplateVersions(templateId: string): Promise<TemplateVersionDetail[]> {
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/versions`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch runs that used a specific template, with optional filters. */
+export async function fetchTemplateRuns(
+  templateId: string,
+  params: FetchTemplateRunsParams = {},
+): Promise<TemplateRunsResponse> {
+  const qs = new URLSearchParams()
+  if (params.template_version) qs.set('template_version', params.template_version)
+  if (params.status) qs.set('status', params.status)
+  if (params.days != null) qs.set('days', String(params.days))
+  if (params.limit != null) qs.set('limit', String(params.limit))
+  if (params.offset != null) qs.set('offset', String(params.offset))
+  const query = qs.toString() ? `?${qs.toString()}` : ''
+  const res = await fetch(`${getApiBase()}/v1/templates/${encodeURIComponent(templateId)}/runs${query}`)
   if (!res.ok) throw await parseErrorResponse(res)
   return res.json()
 }

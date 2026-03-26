@@ -4,6 +4,8 @@ import { RunsPage } from './pages/RunsPage'
 import { RunDetailPage } from './pages/RunDetailPage'
 import { RunComparePage } from './pages/RunComparePage'
 import { JobsPage } from './pages/JobsPage'
+import { TemplatesPage } from './pages/TemplatesPage'
+import { TemplateDetailPage } from './pages/TemplateDetailPage'
 
 export function App() {
   return (
@@ -21,6 +23,9 @@ export function App() {
           <NavLink to="/jobs" className={({ isActive }) => isActive ? 'app-nav__link app-nav__link--active' : 'app-nav__link'}>
             Jobs
           </NavLink>
+          <NavLink to="/templates" className={({ isActive }) => isActive ? 'app-nav__link app-nav__link--active' : 'app-nav__link'}>
+            Templates
+          </NavLink>
         </nav>
       </header>
 
@@ -30,6 +35,8 @@ export function App() {
         <Route path="/runs/compare" element={<RunComparePage />} />
         <Route path="/runs/:runId" element={<RunDetailPage />} />
         <Route path="/jobs" element={<JobsPage />} />
+        <Route path="/templates" element={<TemplatesPage />} />
+        <Route path="/templates/:templateId" element={<TemplateDetailPage />} />
       </Routes>
     </div>
   )

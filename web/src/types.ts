@@ -62,6 +62,9 @@ export interface RunDetail {
   replay_available?: boolean
   action_type?: string | null
   source_run_id?: string | null
+  // Template lineage (Phase 8 Stage 1–2)
+  template_version?: string | null
+  template_revision_hash?: string | null
 }
 
 export interface RunActionResponse {
@@ -235,6 +238,58 @@ export interface ApiErrorDetail {
   request_id?: string
   error?: string
   detail?: string | { error: string; request_id?: string }
+}
+
+// ---------------------------------------------------------------------------
+// Template Registry types (Phase 8 Stage 2)
+// ---------------------------------------------------------------------------
+
+export interface TemplateVersionDetail {
+  version: string
+  template_revision_hash: string
+  template_path: string | null
+  playbook_path: string | null
+  input_contract_version: string | null
+  ai_mode: string
+}
+
+export interface TemplateDetail {
+  template_id: string
+  name: string
+  description: string | null
+  owner: string | null
+  lifecycle_status: string
+  versions: string[]  // ascending semver strings
+}
+
+export interface TemplateRunItem {
+  run_id: string
+  status: string
+  template_version: string | null
+  template_revision_hash: string | null
+  started_at: string
+  completed_at: string | null
+  total_ms: number | null
+  artifact_count: number | null
+  error_category: string | null
+  mode: string
+  playbook_id: string | null
+}
+
+export interface TemplateRunsResponse {
+  template_id: string
+  runs: TemplateRunItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface FetchTemplateRunsParams {
+  template_version?: string
+  status?: string
+  days?: number
+  limit?: number
+  offset?: number
 }
 
 /** Structured error thrown by the API client. */

@@ -78,6 +78,8 @@ def _run_to_response(run: RunRecord, replay_available: bool = False) -> RunRespo
         replay_available=replay_available,
         action_type=run.action_type,
         source_run_id=run.source_run_id,
+        template_version=run.template_version,
+        template_revision_hash=run.template_revision_hash,
     )
 
 

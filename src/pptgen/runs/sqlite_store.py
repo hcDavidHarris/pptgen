@@ -48,6 +48,8 @@ def _row_to_run(r: sqlite3.Row) -> RunRecord:
     input_text = r["input_text"] if "input_text" in keys else None
     action_type = r["action_type"] if "action_type" in keys else None
     source_run_id = r["source_run_id"] if "source_run_id" in keys else None
+    template_version = r["template_version"] if "template_version" in keys else None
+    template_revision_hash = r["template_revision_hash"] if "template_revision_hash" in keys else None
     return RunRecord(
         run_id=r["run_id"],
         status=RunStatus(r["status"]),
@@ -70,6 +72,8 @@ def _row_to_run(r: sqlite3.Row) -> RunRecord:
         input_text=input_text,
         action_type=action_type,
         source_run_id=source_run_id,
+        template_version=template_version,
+        template_revision_hash=template_revision_hash,
     )
 
 
@@ -87,11 +91,13 @@ class SQLiteRunStore:
     def _migrate_schema(self) -> None:
         existing = {row[1] for row in self._conn.execute("PRAGMA table_info(runs)").fetchall()}
         new_columns = {
-            "stage_timings":  "ALTER TABLE runs ADD COLUMN stage_timings TEXT",
-            "artifact_count": "ALTER TABLE runs ADD COLUMN artifact_count INTEGER",
-            "input_text":     "ALTER TABLE runs ADD COLUMN input_text TEXT",
-            "action_type":    "ALTER TABLE runs ADD COLUMN action_type TEXT",
-            "source_run_id":  "ALTER TABLE runs ADD COLUMN source_run_id TEXT",
+            "stage_timings":          "ALTER TABLE runs ADD COLUMN stage_timings TEXT",
+            "artifact_count":         "ALTER TABLE runs ADD COLUMN artifact_count INTEGER",
+            "input_text":             "ALTER TABLE runs ADD COLUMN input_text TEXT",
+            "action_type":            "ALTER TABLE runs ADD COLUMN action_type TEXT",
+            "source_run_id":          "ALTER TABLE runs ADD COLUMN source_run_id TEXT",
+            "template_version":       "ALTER TABLE runs ADD COLUMN template_version TEXT",
+            "template_revision_hash": "ALTER TABLE runs ADD COLUMN template_revision_hash TEXT",
         }
         for col, ddl in new_columns.items():
             if col not in existing:
@@ -103,12 +109,14 @@ class SQLiteRunStore:
             self._conn.execute(
                 """INSERT INTO runs (run_id, status, source, job_id, request_id,
                    mode, template_id, playbook_id, profile, config_fingerprint,
-                   started_at, input_text, action_type, source_run_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                   started_at, input_text, action_type, source_run_id,
+                   template_version, template_revision_hash)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (run.run_id, run.status.value, run.source.value, run.job_id,
                  run.request_id, run.mode, run.template_id, run.playbook_id,
                  run.profile, run.config_fingerprint, _iso(run.started_at),
-                 run.input_text, run.action_type, run.source_run_id),
+                 run.input_text, run.action_type, run.source_run_id,
+                 run.template_version, run.template_revision_hash),
             )
             self._conn.commit()
 
@@ -184,6 +192,33 @@ class SQLiteRunStore:
     def list_for_job(self, job_id: str) -> list[RunRecord]:
         rows = self._conn.execute(
             "SELECT * FROM runs WHERE job_id = ? ORDER BY started_at", (job_id,)
+        ).fetchall()
+        return [_row_to_run(r) for r in rows]
+
+    def list_runs_by_template(
+        self,
+        template_id: str,
+        template_version: Optional[str] = None,
+        limit: int = 50,
+        offset: int = 0,
+        status: Optional[str] = None,
+        since_iso: Optional[str] = None,
+    ) -> list[RunRecord]:
+        clauses: list[str] = ["template_id = ?"]
+        params: list = [template_id]
+        if template_version:
+            clauses.append("template_version = ?")
+            params.append(template_version)
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if since_iso:
+            clauses.append("started_at >= ?")
+            params.append(since_iso)
+        where = "WHERE " + " AND ".join(clauses)
+        rows = self._conn.execute(
+            f"SELECT * FROM runs {where} ORDER BY started_at DESC LIMIT ? OFFSET ?",
+            (*params, limit, offset),
         ).fetchall()
         return [_row_to_run(r) for r in rows]
 

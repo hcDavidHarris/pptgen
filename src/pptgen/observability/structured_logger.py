@@ -79,6 +79,23 @@ class StructuredLogger:
             checksum=checksum,
         )
 
+    def template_resolved(
+        self,
+        template_id: str,
+        version: str,
+        template_revision_hash: str,
+        resolution_mode: str,
+        run_id: Optional[str] = None,
+    ) -> None:
+        self.event(
+            "template_resolved",
+            run_id=run_id,
+            template_id=template_id,
+            version=version,
+            template_revision_hash=template_revision_hash,
+            resolution_mode=resolution_mode,
+        )
+
 
 def get_logger(name: str) -> StructuredLogger:
     """Return a StructuredLogger for the given name."""

@@ -1,0 +1,58 @@
+# pptgen Template Registry — Versioned Manifest
+# Phase 8 Stage 1: Template Registry Foundation
+#
+# This file is the authoritative versioned manifest for registered pptgen templates.
+# Templates are declared here with full semantic versioning and metadata.
+#
+# Structure:
+#   templates:
+#     <template_id>:
+#       name: Human-readable name
+#       owner: Owning team
+#       description: Purpose of this template
+#       lifecycle_status: draft | review | approved | deprecated
+#       versions:
+#         - version: "1.0.0"                      # semantic version (immutable)
+#           template_path: path/to/template.pptx  # relative to repo root
+#           input_contract_version: <contract>    # input schema version tag
+#           ai_mode: optional | required | disabled
+#
+# Version identity is guaranteed by template_revision_hash, computed from
+# template_id + version + manifest entry fields. This supports replay safety.
+#
+# All changes to this file go through code review.
+
+templates:
+
+  executive_brief_v1:
+    name: "Executive Brief"
+    owner: "Analytics Services"
+    description: "Concise executive-level presentation deck for leadership audiences."
+    lifecycle_status: approved
+    versions:
+      - version: "1.0.0"
+        template_path: templates/executive_brief_v1/template.pptx
+        input_contract_version: executive_v1
+        ai_mode: optional
+
+  architecture_overview_v1:
+    name: "Architecture Overview"
+    owner: "Analytics Services"
+    description: "Technical architecture and system design presentation."
+    lifecycle_status: approved
+    versions:
+      - version: "1.0.0"
+        template_path: templates/architecture_overview_v1/template.pptx
+        input_contract_version: architecture_v1
+        ai_mode: optional
+
+  ops_review_v1:
+    name: "Operations Review"
+    owner: "Analytics Services"
+    description: "Operational status, metrics, and incident review deck."
+    lifecycle_status: approved
+    versions:
+      - version: "1.0.0"
+        template_path: templates/ops_review_v1/template.pptx
+        input_contract_version: ops_v1
+        ai_mode: optional

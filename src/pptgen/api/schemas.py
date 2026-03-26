@@ -183,6 +183,8 @@ class RunResponse(BaseModel):
     replay_available: bool = False
     action_type: str | None = None
     source_run_id: str | None = None
+    template_version: str | None = None
+    template_revision_hash: str | None = None
 
 
 class ArtifactMetadataResponse(BaseModel):
@@ -265,3 +267,55 @@ class SystemHealthResponse(BaseModel):
     failed_jobs_1h: int
     run_store_ok: bool
     job_store_ok: bool
+
+
+# ---------------------------------------------------------------------------
+# Template Registry schemas (Phase 8 Stage 1 + Stage 2)
+# ---------------------------------------------------------------------------
+
+class TemplateVersionResponse(BaseModel):
+    """A single immutable version of a registered template."""
+
+    version: str
+    template_revision_hash: str
+    template_path: str | None = None
+    playbook_path: str | None = None
+    input_contract_version: str | None = None
+    ai_mode: str = "optional"
+
+
+class TemplateDetailResponse(BaseModel):
+    """Response for ``GET /v1/templates/{template_id}``."""
+
+    template_id: str
+    name: str
+    description: str | None = None
+    owner: str | None = None
+    lifecycle_status: str
+    versions: list[str]  # ordered list of version strings (ascending semver)
+
+
+class TemplateRunItem(BaseModel):
+    """A single run entry in a template runs response."""
+
+    run_id: str
+    status: str
+    template_version: str | None = None
+    template_revision_hash: str | None = None
+    started_at: str
+    completed_at: str | None = None
+    total_ms: float | None = None
+    artifact_count: int | None = None
+    error_category: str | None = None
+    mode: str = "deterministic"
+    playbook_id: str | None = None
+
+
+class TemplateRunsResponse(BaseModel):
+    """Response for ``GET /v1/templates/{template_id}/runs``."""
+
+    template_id: str
+    runs: list[TemplateRunItem]
+    total: int
+    limit: int
+    offset: int
