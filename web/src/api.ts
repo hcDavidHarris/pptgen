@@ -13,7 +13,7 @@
  * The variable is read lazily so the test suite can stub it per-test.
  */
 
-import type { ArtifactMetadata, FetchRunsParams, GenerateRequest, GenerateResponse, RunDetail, RunListResponse, RunMetrics, TemplatesResponse } from './types'
+import type { ArtifactMetadata, FetchJobsParams, FetchRunsParams, GenerateRequest, GenerateResponse, JobCancelResponse, JobListResponse, RunActionResponse, RunCompareData, RunDetail, RunListResponse, RunMetrics, RunStats, SystemHealth, TemplatesResponse } from './types'
 import { ApiError } from './types'
 
 /** Returns the configured API base (no trailing slash). */
@@ -112,6 +112,66 @@ export async function fetchRuns(params: FetchRunsParams = {}): Promise<RunListRe
   if (params.mode) qs.set('mode', params.mode)
   const query = qs.toString() ? `?${qs.toString()}` : ''
   const res = await fetch(`${getApiBase()}/v1/runs${query}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+
+/** Fetch aggregate run statistics for a time window (default 24h). */
+export async function fetchRunStats(window = '24h'): Promise<RunStats> {
+  const res = await fetch(`${getApiBase()}/v1/runs/stats?window=${encodeURIComponent(window)}`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch two runs in parallel for side-by-side comparison. */
+export async function fetchRunPair(idA: string, idB: string): Promise<RunCompareData> {
+  const [a, b] = await Promise.all([fetchRun(idA), fetchRun(idB)])
+  return { a, b }
+}
+
+/** Fetch system health snapshot. */
+export async function fetchSystemHealth(): Promise<SystemHealth> {
+  const res = await fetch(`${getApiBase()}/v1/system/health`)
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Retry a failed run — creates a new run and job. */
+export async function retryRun(runId: string): Promise<RunActionResponse> {
+  const res = await fetch(`${getApiBase()}/v1/runs/${encodeURIComponent(runId)}/retry`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Rerun any run regardless of status. */
+export async function rerunRun(runId: string): Promise<RunActionResponse> {
+  const res = await fetch(`${getApiBase()}/v1/runs/${encodeURIComponent(runId)}/rerun`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Cancel a job (queued/retrying → cancelled; running → cancellation_requested). */
+export async function cancelJob(jobId: string): Promise<JobCancelResponse> {
+  const res = await fetch(`${getApiBase()}/v1/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw await parseErrorResponse(res)
+  return res.json()
+}
+
+/** Fetch paginated job list with optional status filter. */
+export async function fetchJobs(params: FetchJobsParams = {}): Promise<JobListResponse> {
+  const qs = new URLSearchParams()
+  if (params.limit != null) qs.set('limit', String(params.limit))
+  if (params.offset != null) qs.set('offset', String(params.offset))
+  if (params.status) qs.set('status', params.status)
+  const query = qs.toString() ? `?${qs.toString()}` : ''
+  const res = await fetch(`${getApiBase()}/v1/jobs${query}`)
   if (!res.ok) throw await parseErrorResponse(res)
   return res.json()
 }

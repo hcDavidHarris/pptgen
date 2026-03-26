@@ -50,6 +50,11 @@ class RunRecord:
     stage_timings: Optional[list] = None  # [{"stage": str, "duration_ms": float|None}]
     artifact_count: Optional[int] = None
 
+    # Lineage / replay fields
+    input_text: Optional[str] = None
+    action_type: Optional[str] = None    # 'retry' | 'rerun' | None
+    source_run_id: Optional[str] = None  # run_id this was derived from
+
     @classmethod
     def create(
         cls,
@@ -61,6 +66,9 @@ class RunRecord:
         template_id: Optional[str] = None,
         profile: str = "dev",
         config_fingerprint: Optional[str] = None,
+        input_text: Optional[str] = None,
+        action_type: Optional[str] = None,
+        source_run_id: Optional[str] = None,
     ) -> RunRecord:
         return cls(
             run_id=run_id if run_id is not None else uuid.uuid4().hex,
@@ -72,6 +80,9 @@ class RunRecord:
             template_id=template_id,
             profile=profile,
             config_fingerprint=config_fingerprint,
+            input_text=input_text,
+            action_type=action_type,
+            source_run_id=source_run_id,
         )
 
     def is_terminal(self) -> bool:

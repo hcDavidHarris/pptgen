@@ -6,6 +6,10 @@ import { RunSummaryCard } from '../components/RunSummaryCard'
 import { RunMetricsCard } from '../components/RunMetricsCard'
 import { ArtifactList } from '../components/ArtifactList'
 import { ManifestViewer } from '../components/ManifestViewer'
+import { RunDiagnosticsCard } from '../components/RunDiagnosticsCard'
+import { RetryButton } from '../components/RetryButton'
+import { RerunButton } from '../components/RerunButton'
+import { CancelJobButton } from '../components/CancelJobButton'
 import { ErrorState } from '../components/ErrorState'
 import { artifactDownloadUrl } from '../api'
 import type { ArtifactMetadata } from '../types'
@@ -59,15 +63,20 @@ export function RunDetailPage() {
 
       <div className="run-detail__header">
         <h2>Run Detail</h2>
-        {finalDeck && (
-          <a
-            href={artifactDownloadUrl(finalDeck.artifact_id)}
-            className="run-detail__download-cta"
-            download={finalDeck.filename}
-          >
-            Download Presentation
-          </a>
-        )}
+        <div className="run-detail__actions">
+          <CancelJobButton run={run} onCancelled={() => window.location.reload()} />
+          <RetryButton run={run} />
+          <RerunButton run={run} />
+          {finalDeck && (
+            <a
+              href={artifactDownloadUrl(finalDeck.artifact_id)}
+              className="run-detail__download-cta"
+              download={finalDeck.filename}
+            >
+              Download Presentation
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="run-detail-grid">
@@ -76,6 +85,10 @@ export function RunDetailPage() {
           <RunMetricsCard metrics={metrics} />
         )}
       </div>
+
+      {run.status === 'failed' && (
+        <RunDiagnosticsCard run={run} metrics={!metricsLoading ? (metrics ?? null) : null} />
+      )}
 
       <section className="run-detail__artifacts">
         <h3>Artifacts</h3>

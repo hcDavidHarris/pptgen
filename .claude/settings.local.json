@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/unit/test_retry_api.py tests/unit/test_rerun_api.py tests/unit/test_cancel_api.py tests/unit/test_jobs_list_api.py -v)",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(npx vitest:*)"
+    ]
+  }
+}

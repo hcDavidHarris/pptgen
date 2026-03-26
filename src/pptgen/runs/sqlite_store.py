@@ -45,6 +45,9 @@ def _row_to_run(r: sqlite3.Row) -> RunRecord:
     stage_timings_raw = r["stage_timings"] if "stage_timings" in keys else None
     stage_timings = json.loads(stage_timings_raw) if stage_timings_raw else None
     artifact_count = r["artifact_count"] if "artifact_count" in keys else None
+    input_text = r["input_text"] if "input_text" in keys else None
+    action_type = r["action_type"] if "action_type" in keys else None
+    source_run_id = r["source_run_id"] if "source_run_id" in keys else None
     return RunRecord(
         run_id=r["run_id"],
         status=RunStatus(r["status"]),
@@ -64,6 +67,9 @@ def _row_to_run(r: sqlite3.Row) -> RunRecord:
         manifest_path=r["manifest_path"],
         stage_timings=stage_timings,
         artifact_count=artifact_count,
+        input_text=input_text,
+        action_type=action_type,
+        source_run_id=source_run_id,
     )
 
 
@@ -81,8 +87,11 @@ class SQLiteRunStore:
     def _migrate_schema(self) -> None:
         existing = {row[1] for row in self._conn.execute("PRAGMA table_info(runs)").fetchall()}
         new_columns = {
-            "stage_timings": "ALTER TABLE runs ADD COLUMN stage_timings TEXT",
+            "stage_timings":  "ALTER TABLE runs ADD COLUMN stage_timings TEXT",
             "artifact_count": "ALTER TABLE runs ADD COLUMN artifact_count INTEGER",
+            "input_text":     "ALTER TABLE runs ADD COLUMN input_text TEXT",
+            "action_type":    "ALTER TABLE runs ADD COLUMN action_type TEXT",
+            "source_run_id":  "ALTER TABLE runs ADD COLUMN source_run_id TEXT",
         }
         for col, ddl in new_columns.items():
             if col not in existing:
@@ -94,10 +103,12 @@ class SQLiteRunStore:
             self._conn.execute(
                 """INSERT INTO runs (run_id, status, source, job_id, request_id,
                    mode, template_id, playbook_id, profile, config_fingerprint,
-                   started_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                   started_at, input_text, action_type, source_run_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (run.run_id, run.status.value, run.source.value, run.job_id,
                  run.request_id, run.mode, run.template_id, run.playbook_id,
-                 run.profile, run.config_fingerprint, _iso(run.started_at)),
+                 run.profile, run.config_fingerprint, _iso(run.started_at),
+                 run.input_text, run.action_type, run.source_run_id),
             )
             self._conn.commit()
 
@@ -175,6 +186,30 @@ class SQLiteRunStore:
             "SELECT * FROM runs WHERE job_id = ? ORDER BY started_at", (job_id,)
         ).fetchall()
         return [_row_to_run(r) for r in rows]
+
+    def run_stats(self, since_iso: str) -> dict:
+        """Return aggregate run counts for runs started after since_iso."""
+        row = self._conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'succeeded' THEN 1 ELSE 0 END) AS succeeded,
+                SUM(CASE WHEN status = 'failed'    THEN 1 ELSE 0 END) AS failed,
+                SUM(CASE WHEN status = 'running'   THEN 1 ELSE 0 END) AS running,
+                AVG(CASE WHEN total_ms > 0 THEN total_ms ELSE NULL END) AS avg_ms
+            FROM runs
+            WHERE started_at > ?
+            """,
+            (since_iso,),
+        ).fetchone()
+        total = row["total"] or 0
+        return {
+            "total": total,
+            "succeeded": row["succeeded"] or 0,
+            "failed": row["failed"] or 0,
+            "running": row["running"] or 0,
+            "avg_ms": row["avg_ms"],
+        }
 
     def close(self) -> None:
         with self._lock:

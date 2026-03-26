@@ -140,6 +140,9 @@ class JobWorker:
                     request_id=job.request_id,
                     mode=job.mode,
                     template_id=job.template_id,
+                    input_text=job.input_text,
+                    action_type=job.action_type,
+                    source_run_id=job.source_run_id,
                 )
                 self._run_store.create(run)
                 _slog.job_claimed(job.job_id, run_id=job.run_id, worker_id=self._worker_id)
@@ -160,6 +163,13 @@ class JobWorker:
                     run_context_dict=ctx.as_dict(),
                     total_ms=ctx.total_ms(),
                 )
+
+            # Check if cancellation was requested while we were executing
+            refreshed = self._store.get(job.job_id)
+            if refreshed is not None and refreshed.status == JobStatus.CANCELLATION_REQUESTED:
+                self._store.update_status(job.job_id, JobStatus.CANCELLED)
+                logger.info("Job %s cancelled post-execution", job.job_id)
+                return
 
             self._store.update_status(
                 job.job_id,

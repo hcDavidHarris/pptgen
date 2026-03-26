@@ -24,6 +24,7 @@ from .file_routes import file_router
 from .job_routes import router as jobs_router
 from .routes import router
 from .run_routes import router as runs_router
+from .system_routes import router as system_router
 
 
 @asynccontextmanager
@@ -138,6 +139,7 @@ app.include_router(file_router)
 app.include_router(jobs_router)
 app.include_router(runs_router)
 app.include_router(artifacts_router)
+app.include_router(system_router)
 
 
 if __name__ == "__main__":  # pragma: no cover

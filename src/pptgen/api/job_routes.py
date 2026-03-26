@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException, Request
 
 from ..jobs.models import JobRecord, WorkloadType
 from ..jobs.store import AbstractJobStore
-from .schemas import JobCancelResponse, JobStatusResponse, JobSubmitRequest, RunListItemResponse
+from typing import Optional
+from .schemas import JobCancelResponse, JobListResponse, JobStatusResponse, JobSubmitRequest, RunListItemResponse
 
 router = APIRouter(prefix="/v1/jobs", tags=["jobs"])
 
@@ -33,6 +34,26 @@ def _to_status_response(job: JobRecord) -> JobStatusResponse:
         error_message=job.error_message,
         output_path=job.output_path,
         playbook_id=job.playbook_id,
+        action_type=job.action_type,
+        source_run_id=job.source_run_id,
+    )
+
+
+@router.get("")
+def list_jobs(
+    request: Request,
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+) -> JobListResponse:
+    """List recent jobs with optional status filter."""
+    store = get_job_store(request)
+    jobs = store.list_jobs(limit=limit, offset=offset, status=status)
+    return JobListResponse(
+        jobs=[_to_status_response(j) for j in jobs],
+        total=len(jobs),
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -87,16 +108,29 @@ def get_job_runs(job_id: str, request: Request) -> list[RunListItemResponse]:
 
 @router.post("/{job_id}/cancel")
 def cancel_job(job_id: str, request: Request) -> JobCancelResponse:
-    """Cancel a queued or retrying job."""
+    """Cancel a queued, retrying, or running job."""
     store = get_job_store(request)
     job = store.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-    cancelled = store.cancel(job_id)
-    if cancelled:
-        return JobCancelResponse(job_id=job_id, cancelled=True, message="Job cancelled.")
-    return JobCancelResponse(
-        job_id=job_id,
-        cancelled=False,
-        message=f"Job cannot be cancelled in status '{job.status.value}'.",
-    )
+    if job.is_terminal():
+        return JobCancelResponse(
+            job_id=job_id,
+            accepted=False,
+            status=job.status.value,
+            message=f"Job is already terminal (status='{job.status.value}').",
+        )
+    new_status = store.cancel(job_id)
+    if new_status is None:
+        return JobCancelResponse(
+            job_id=job_id,
+            accepted=False,
+            status=job.status.value,
+            message=f"Job cannot be cancelled in status '{job.status.value}'.",
+        )
+    accepted = True
+    if new_status == "cancellation_requested":
+        message = "Cancellation requested; job will be cancelled after current execution completes."
+    else:
+        message = "Job cancelled."
+    return JobCancelResponse(job_id=job_id, accepted=accepted, status=new_status, message=message)

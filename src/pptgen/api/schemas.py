@@ -126,14 +126,35 @@ class JobStatusResponse(BaseModel):
     error_message: str | None = None
     output_path: str | None = None
     playbook_id: str | None = None
+    action_type: str | None = None
+    source_run_id: str | None = None
+
+
+class JobListResponse(BaseModel):
+    """Response for ``GET /v1/jobs``."""
+
+    jobs: list[JobStatusResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 class JobCancelResponse(BaseModel):
     """Response for ``POST /v1/jobs/{job_id}/cancel``."""
 
     job_id: str
-    cancelled: bool
+    accepted: bool
+    status: str
     message: str
+
+
+class RunActionResponse(BaseModel):
+    """Response for POST /v1/runs/{run_id}/retry and /rerun."""
+
+    run_id: str           # new run that was created
+    source_run_id: str    # original run this was derived from
+    action_type: str      # 'retry' | 'rerun'
+    job_id: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +179,10 @@ class RunResponse(BaseModel):
     error_category: str | None = None
     error_message: str | None = None
     manifest_path: str | None = None
+    retry_count: int | None = None
+    replay_available: bool = False
+    action_type: str | None = None
+    source_run_id: str | None = None
 
 
 class ArtifactMetadataResponse(BaseModel):
@@ -217,3 +242,26 @@ class RunMetricsResponse(BaseModel):
     stage_timings: list[dict] = []
     slowest_stage: str | None = None
     fastest_stage: str | None = None
+
+
+class RunStatsResponse(BaseModel):
+    """Response for ``GET /v1/runs/stats``."""
+
+    window_hours: int
+    total_runs: int
+    succeeded_runs: int
+    failed_runs: int
+    running_runs: int
+    success_rate: float | None = None   # None when total_runs == 0
+    avg_duration_ms: float | None = None
+
+
+class SystemHealthResponse(BaseModel):
+    """Response for ``GET /v1/system/health``."""
+
+    status: str                   # 'healthy' | 'degraded'
+    queued_jobs: int
+    running_jobs: int
+    failed_jobs_1h: int
+    run_store_ok: bool
+    job_store_ok: bool

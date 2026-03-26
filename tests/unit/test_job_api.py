@@ -108,13 +108,14 @@ class TestGetJobStatus:
 
 
 class TestCancelJob:
-    def test_cancel_queued_job_returns_cancelled_true(self, client_with_store):
+    def test_cancel_queued_job_returns_accepted_true(self, client_with_store):
         client, store = client_with_store
         job = JobRecord.create("text")
         store.submit(job)
         resp = client.post(f"/v1/jobs/{job.job_id}/cancel")
         assert resp.status_code == 200
-        assert resp.json()["cancelled"] is True
+        assert resp.json()["accepted"] is True
+        assert resp.json()["status"] == "cancelled"
 
     def test_cancel_changes_status_to_cancelled(self, client_with_store):
         client, store = client_with_store
@@ -123,14 +124,16 @@ class TestCancelJob:
         client.post(f"/v1/jobs/{job.job_id}/cancel")
         assert store.get(job.job_id).status == JobStatus.CANCELLED
 
-    def test_cancel_running_job_returns_cancelled_false(self, client_with_store):
+    def test_cancel_running_job_returns_cancellation_requested(self, client_with_store):
         client, store = client_with_store
         job = JobRecord.create("text")
         store.submit(job)
         store.claim_next("test-worker")
         resp = client.post(f"/v1/jobs/{job.job_id}/cancel")
         assert resp.status_code == 200
-        assert resp.json()["cancelled"] is False
+        data = resp.json()
+        assert data["accepted"] is True
+        assert data["status"] == "cancellation_requested"
 
     def test_cancel_nonexistent_job_404(self, client_with_store):
         client, _ = client_with_store

@@ -17,6 +17,7 @@ class JobStatus(str, Enum):
     RETRYING = "retrying"
     CANCELLED = "cancelled"
     TIMED_OUT = "timed_out"
+    CANCELLATION_REQUESTED = "cancellation_requested"
 
 
 class WorkloadType(str, Enum):
@@ -65,6 +66,10 @@ class JobRecord:
     worker_id: Optional[str] = None
     claimed_at: Optional[datetime] = None
 
+    # Lineage / replay fields
+    action_type: Optional[str] = None    # 'retry' | 'rerun' | None
+    source_run_id: Optional[str] = None  # run_id this job was derived from
+
     @classmethod
     def create(
         cls,
@@ -75,6 +80,8 @@ class JobRecord:
         artifacts: bool = False,
         request_id: Optional[str] = None,
         max_retries: int = 3,
+        action_type: Optional[str] = None,
+        source_run_id: Optional[str] = None,
     ) -> JobRecord:
         job_id = uuid.uuid4().hex
         return cls(
@@ -89,6 +96,8 @@ class JobRecord:
             template_id=template_id,
             artifacts=artifacts,
             max_retries=max_retries,
+            action_type=action_type,
+            source_run_id=source_run_id,
         )
 
     def is_terminal(self) -> bool:
@@ -97,4 +106,11 @@ class JobRecord:
             JobStatus.FAILED,
             JobStatus.CANCELLED,
             JobStatus.TIMED_OUT,
+        )
+
+    def is_cancellable(self) -> bool:
+        return self.status in (
+            JobStatus.QUEUED,
+            JobStatus.RETRYING,
+            JobStatus.RUNNING,
         )

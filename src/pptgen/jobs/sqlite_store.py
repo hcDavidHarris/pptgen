@@ -51,6 +51,9 @@ def _iso(val: Optional[datetime]) -> Optional[str]:
 
 
 def _row_to_job(row: sqlite3.Row) -> JobRecord:
+    keys = row.keys()
+    action_type = row["action_type"] if "action_type" in keys else None
+    source_run_id = row["source_run_id"] if "source_run_id" in keys else None
     return JobRecord(
         job_id=row["job_id"],
         run_id=row["run_id"],
@@ -74,6 +77,8 @@ def _row_to_job(row: sqlite3.Row) -> JobRecord:
         playbook_id=row["playbook_id"],
         worker_id=row["worker_id"],
         claimed_at=_dt(row["claimed_at"]),
+        action_type=action_type,
+        source_run_id=source_run_id,
     )
 
 
@@ -94,6 +99,18 @@ class SQLiteJobStore:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.execute(_CREATE_TABLE)
         self._conn.commit()
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        existing = {row[1] for row in self._conn.execute("PRAGMA table_info(jobs)").fetchall()}
+        new_columns = {
+            "action_type":   "ALTER TABLE jobs ADD COLUMN action_type TEXT",
+            "source_run_id": "ALTER TABLE jobs ADD COLUMN source_run_id TEXT",
+        }
+        for col, ddl in new_columns.items():
+            if col not in existing:
+                self._conn.execute(ddl)
+        self._conn.commit()
 
     # ------------------------------------------------------------------
     # AbstractJobStore protocol
@@ -106,8 +123,9 @@ class SQLiteJobStore:
                 INSERT INTO jobs (
                     job_id, run_id, status, workload_type, priority,
                     input_text, request_id, mode, template_id, artifacts,
-                    submitted_at, retry_count, max_retries
-                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    submitted_at, retry_count, max_retries,
+                    action_type, source_run_id
+                ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     job.job_id, job.run_id, job.status.value,
@@ -115,6 +133,7 @@ class SQLiteJobStore:
                     job.input_text, job.request_id, job.mode,
                     job.template_id, int(job.artifacts),
                     _iso(job.submitted_at), job.retry_count, job.max_retries,
+                    job.action_type, job.source_run_id,
                 ),
             )
             self._conn.commit()
@@ -198,18 +217,56 @@ class SQLiteJobStore:
             )
             self._conn.commit()
 
-    def cancel(self, job_id: str) -> bool:
-        """Cancel a queued or retrying job. Returns True if cancelled."""
+    def cancel(self, job_id: str) -> str | None:
+        """Cancel a job.
+
+        - QUEUED / RETRYING → CANCELLED immediately.
+        - RUNNING → CANCELLATION_REQUESTED (cooperative; worker checks post-execution).
+        - Already terminal → no-op, returns None.
+
+        Returns the new status string on success, or None if job not found / already terminal.
+        """
         with self._lock:
-            updated = self._conn.execute(
-                """
-                UPDATE jobs SET status = 'cancelled', completed_at = ?
-                WHERE job_id = ? AND status IN ('queued', 'retrying')
-                """,
-                (_iso(datetime.now(tz=timezone.utc)), job_id),
-            ).rowcount
+            row = self._conn.execute(
+                "SELECT status FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            current = row["status"]
+            if current in ("queued", "retrying"):
+                new_status = "cancelled"
+                self._conn.execute(
+                    "UPDATE jobs SET status = ?, completed_at = ? WHERE job_id = ?",
+                    ("cancelled", _iso(datetime.now(tz=timezone.utc)), job_id),
+                )
+            elif current == "running":
+                new_status = "cancellation_requested"
+                self._conn.execute(
+                    "UPDATE jobs SET status = ? WHERE job_id = ?",
+                    ("cancellation_requested", job_id),
+                )
+            else:
+                return None  # already terminal
             self._conn.commit()
-        return updated > 0
+        return new_status
+
+    def list_jobs(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status: Optional[str] = None,
+    ) -> list[JobRecord]:
+        clauses: list[str] = []
+        params: list = []
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+        rows = self._conn.execute(
+            f"SELECT * FROM jobs {where} ORDER BY submitted_at DESC LIMIT ? OFFSET ?",
+            (*params, limit, offset),
+        ).fetchall()
+        return [_row_to_job(r) for r in rows]
 
     def list_stale_running(self, timeout: timedelta) -> list[JobRecord]:
         cutoff = _iso(datetime.now(tz=timezone.utc) - timeout)
@@ -221,6 +278,23 @@ class SQLiteJobStore:
             (cutoff,),
         ).fetchall()
         return [_row_to_job(r) for r in rows]
+
+    def job_summary(self) -> dict:
+        """Return counts of jobs by status for system health checks."""
+        row = self._conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN status = 'queued' THEN 1 ELSE 0 END) AS queued,
+                SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running,
+                SUM(CASE WHEN status = 'failed' AND submitted_at > datetime('now', '-1 hour') THEN 1 ELSE 0 END) AS failed_1h
+            FROM jobs
+            """
+        ).fetchone()
+        return {
+            "queued": row["queued"] or 0,
+            "running": row["running"] or 0,
+            "failed_1h": row["failed_1h"] or 0,
+        }
 
     def close(self) -> None:
         with self._lock:

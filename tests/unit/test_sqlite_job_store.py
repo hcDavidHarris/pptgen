@@ -122,25 +122,25 @@ class TestCancel:
         job = JobRecord.create("text")
         store.submit(job)
         result = store.cancel(job.job_id)
-        assert result is True
+        assert result == "cancelled"
         assert store.get(job.job_id).status == JobStatus.CANCELLED
 
-    def test_cancel_running_job_returns_false(self, store):
+    def test_cancel_running_job_returns_cancellation_requested(self, store):
         job = JobRecord.create("text")
         store.submit(job)
         store.claim_next("w")
         result = store.cancel(job.job_id)
-        assert result is False
-        assert store.get(job.job_id).status == JobStatus.RUNNING
+        assert result == "cancellation_requested"
+        assert store.get(job.job_id).status == JobStatus.CANCELLATION_REQUESTED
 
-    def test_cancel_nonexistent_returns_false(self, store):
-        assert store.cancel("nonexistent") is False
+    def test_cancel_nonexistent_returns_none(self, store):
+        assert store.cancel("nonexistent") is None
 
-    def test_cancel_already_cancelled_returns_false(self, store):
+    def test_cancel_already_cancelled_returns_none(self, store):
         job = JobRecord.create("text")
         store.submit(job)
         store.cancel(job.job_id)
-        assert store.cancel(job.job_id) is False
+        assert store.cancel(job.job_id) is None
 
 
 class TestListStaleRunning:

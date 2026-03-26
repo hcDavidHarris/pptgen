@@ -57,6 +57,18 @@ export interface RunDetail {
   error_category: string | null
   error_message: string | null
   manifest_path: string | null
+  retry_count?: number | null
+  artifact_count?: number | null
+  replay_available?: boolean
+  action_type?: string | null
+  source_run_id?: string | null
+}
+
+export interface RunActionResponse {
+  run_id: string
+  source_run_id: string
+  action_type: 'retry' | 'rerun'
+  job_id: string | null
 }
 
 export interface StageTimer {
@@ -91,6 +103,93 @@ export interface ArtifactMetadata {
   retention_class: string
   status: 'present' | 'deleted' | 'expired'
   created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Run stats (Phase 7 Stage 2 PR 2)
+// ---------------------------------------------------------------------------
+
+export interface RunStats {
+  window_hours: number
+  total_runs: number
+  succeeded_runs: number
+  failed_runs: number
+  running_runs: number
+  success_rate: number | null
+  avg_duration_ms: number | null
+}
+
+// ---------------------------------------------------------------------------
+// Run comparison (Phase 7 Stage 2 PR 3)
+// ---------------------------------------------------------------------------
+
+export interface RunCompareData {
+  a: RunDetail
+  b: RunDetail
+}
+
+// ---------------------------------------------------------------------------
+// System health (Phase 7 Stage 2 PR 4)
+// ---------------------------------------------------------------------------
+
+export interface SystemHealth {
+  status: 'healthy' | 'degraded'
+  queued_jobs: number
+  running_jobs: number
+  failed_jobs_1h: number
+  run_store_ok: boolean
+  job_store_ok: boolean
+}
+
+// ---------------------------------------------------------------------------
+// Job types (Phase 7 Stage 3)
+// ---------------------------------------------------------------------------
+
+export type JobStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'retrying'
+  | 'cancelled'
+  | 'timed_out'
+  | 'cancellation_requested'
+
+export interface JobListItem {
+  job_id: string
+  run_id: string
+  status: JobStatus
+  workload_type: string
+  submitted_at: string
+  started_at: string | null
+  completed_at: string | null
+  retry_count: number
+  error_category: string | null
+  error_message: string | null
+  output_path: string | null
+  playbook_id: string | null
+  action_type: string | null
+  source_run_id: string | null
+}
+
+export interface JobListResponse {
+  jobs: JobListItem[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface FetchJobsParams {
+  limit?: number
+  offset?: number
+  status?: string
+}
+
+export interface JobCancelResponse {
+  job_id: string
+  accepted: boolean
+  status: string
+  message: string
 }
 
 export type ExecutionMode = 'deterministic' | 'ai'

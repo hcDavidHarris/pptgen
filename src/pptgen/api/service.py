@@ -135,6 +135,7 @@ def run_generate(
                 request_id=request_id,
                 mode=mode,
                 template_id=template_id,
+                input_text=text,
             )
             _run_store.create(run_rec)
             _promoter.promote(
