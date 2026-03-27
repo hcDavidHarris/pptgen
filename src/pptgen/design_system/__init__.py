@@ -42,6 +42,7 @@ Public API::
 """
 
 from .asset_models import AssetDefinition, ResolvedAsset
+from .governance_models import GovernedArtifactFamily, GovernedArtifactVersion, LifecycleStatus
 from .asset_resolver import AssetResolver
 from .exceptions import (
     DesignSystemError,
@@ -77,6 +78,10 @@ from .registry import DesignSystemRegistry
 from .token_resolver import TokenResolver
 
 __all__ = [
+    # Phase 10A — governance models
+    "GovernedArtifactFamily",
+    "GovernedArtifactVersion",
+    "LifecycleStatus",
     # Stage 1 — tokens
     "BaseTokenSet",
     "BrandPack",
