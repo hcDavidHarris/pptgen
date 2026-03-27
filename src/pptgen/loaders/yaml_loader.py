@@ -47,8 +47,57 @@ def load_yaml_file(path: Path) -> dict:
     return data
 
 
+# Fields that belong inside DeckMetadata and may appear at the top level
+# of a Phase 9 root-format deck.
+_DECK_META_FIELDS: frozenset[str] = frozenset({
+    "title", "subtitle", "author", "template",
+    "version", "date", "status", "description", "tags",
+})
+
+
+def _normalize_deck_root_shape(data: dict) -> dict:
+    """Normalize a Phase 9 root-format deck to the internal deck + slides shape.
+
+    Phase 9 structured decks may omit the ``deck:`` wrapper and instead place
+    metadata fields (``title``, ``template``, ``author``, etc.) at the top
+    level alongside ``slides``.  This function detects that shape and promotes
+    those fields into a ``deck`` block before Pydantic validation runs.
+
+    Trigger: ``slides`` present **and** ``deck`` absent.
+
+    If ``deck`` is already present the data is returned unchanged, preserving
+    full backward compatibility with existing legacy input.
+
+    Required ``DeckMetadata`` fields that are absent from the top level receive
+    sensible defaults (``title → "Untitled Deck"``, ``template → "ops_review_v1"``,
+    ``author → "Unknown"``) so that minimally-specified Phase 9 decks still
+    validate without forcing the author to repeat boilerplate.
+    """
+    if "deck" in data or "slides" not in data:
+        return data  # already internal shape, or missing slides — let validator handle
+
+    deck_block: dict = {}
+    for field in _DECK_META_FIELDS:
+        if field in data:
+            deck_block[field] = data[field]
+
+    # Defaults for DeckMetadata required fields
+    deck_block.setdefault("title", "Untitled Deck")
+    deck_block.setdefault("template", "ops_review_v1")
+    deck_block.setdefault("author", "Unknown")
+
+    # Remaining keys (slides, primitive, theme, content, layout, slots, …)
+    normalized = {k: v for k, v in data.items() if k not in _DECK_META_FIELDS}
+    normalized["deck"] = deck_block
+    return normalized
+
+
 def parse_deck(raw_data: dict) -> DeckFile:
     """Validate *raw_data* against the DeckFile model and return a typed object.
+
+    Applies :func:`_normalize_deck_root_shape` before validation so that both
+    the legacy ``deck + slides`` shape and the Phase 9 root shape
+    (``title / theme / slides`` at top level) are accepted.
 
     All structural errors (missing required fields, unknown fields, wrong
     types, empty required arrays) are surfaced here as a ParseError with
@@ -57,8 +106,9 @@ def parse_deck(raw_data: dict) -> DeckFile:
     Raises:
         ParseError: if the data does not conform to the DeckFile schema.
     """
+    normalised = _normalize_deck_root_shape(raw_data)
     try:
-        return DeckFile.model_validate(raw_data)
+        return DeckFile.model_validate(normalised)
     except ValidationError as exc:
         messages = []
         for error in exc.errors():

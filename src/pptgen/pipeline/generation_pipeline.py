@@ -13,7 +13,10 @@ Current pipeline::
         ├─ resolve template              →  override > playbook default > spec default
         ├─ set spec.template             →  resolved template_id
         ├─ plan_slides()                 →  SlidePlan
-        ├─ convert_spec_to_deck()        →  deck_definition (dict)
+        ├─ [if input is structured deck YAML with 'slides' key]
+        │   └─ use parsed dict directly   →  deck_definition (bypass extraction)
+        ├─ [else: narrative text path]
+        │   ├─ convert_spec_to_deck()    →  deck_definition (dict)
         ├─ [if deck declares primitive]
         │   └─ resolve primitive         →  ResolvedSlidePrimitive
         │       injects layout + slots   →  deck_definition updated
@@ -35,6 +38,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from ..artifacts import write_artifacts
 from ..config import get_settings
@@ -176,41 +181,68 @@ def generate_presentation(
     if template_id is not None:
         _validate_template_id(template_id)
 
-    if run_context:
-        run_context.start_stage("route_input")
-    try:
-        playbook_id = route_input(normalised)
-    except InputRouterError as exc:
-        raise PipelineError(str(exc)) from exc
-    finally:
+    # Structured deck bypass (Phase 9).
+    # When input_text is a YAML deck definition (top-level 'slides' list),
+    # skip content extraction, spec creation, and slide planning entirely.
+    # The Phase 9 resolution stages below handle 'primitive', 'layout',
+    # 'content', and asset refs directly from the parsed dict.
+    # Narrative text never produces this shape when YAML-parsed.
+    _structured = _try_parse_deck_definition(normalised)
+
+    if _structured is not None:
+        _validate_structured_deck_shape(_structured)
+        deck_definition: dict[str, Any] = _structured
+        playbook_id = "direct-deck-input"
+        spec = None
+        slide_plan = None
+        exec_notes = ""
+        _deck_meta = _structured.get("deck") if isinstance(_structured.get("deck"), dict) else {}
+        # Prefer deck.template (legacy shape); fall back to top-level template
+        # (Phase 9 root shape has no 'deck' wrapper); then platform default.
+        resolved_template = (
+            template_id
+            or _deck_meta.get("template", "")
+            or (_structured.get("template", "") if isinstance(_structured.get("template"), str) else "")
+            or "ops_review_v1"
+        )
         if run_context:
-            run_context.end_stage("route_input")
-
-    if run_context:
-        run_context.playbook_id = playbook_id
-        run_context.start_stage("execute_playbook")
-    try:
-        spec, exec_notes = execute_playbook_full(playbook_id, normalised, strategy=mode_str)
-    except (PlaybookNotFoundError, UnknownStrategyError) as exc:
-        raise PipelineError(str(exc)) from exc
-    finally:
+            run_context.playbook_id = playbook_id
+    else:
         if run_context:
-            run_context.end_stage("execute_playbook")
+            run_context.start_stage("route_input")
+        try:
+            playbook_id = route_input(normalised)
+        except InputRouterError as exc:
+            raise PipelineError(str(exc)) from exc
+        finally:
+            if run_context:
+                run_context.end_stage("route_input")
 
-    resolved_template = _resolve_template(playbook_id, template_id, spec.template)
-    spec = spec.model_copy(update={"template": resolved_template})
+        if run_context:
+            run_context.playbook_id = playbook_id
+            run_context.start_stage("execute_playbook")
+        try:
+            spec, exec_notes = execute_playbook_full(playbook_id, normalised, strategy=mode_str)
+        except (PlaybookNotFoundError, UnknownStrategyError) as exc:
+            raise PipelineError(str(exc)) from exc
+        finally:
+            if run_context:
+                run_context.end_stage("execute_playbook")
 
-    if run_context:
-        run_context.start_stage("plan_slides")
-    slide_plan = plan_slides(spec, playbook_id=playbook_id)
-    if run_context:
-        run_context.end_stage("plan_slides")
+        resolved_template = _resolve_template(playbook_id, template_id, spec.template)
+        spec = spec.model_copy(update={"template": resolved_template})
 
-    if run_context:
-        run_context.start_stage("convert_spec")
-    deck_definition = convert_spec_to_deck(spec)
-    if run_context:
-        run_context.end_stage("convert_spec")
+        if run_context:
+            run_context.start_stage("plan_slides")
+        slide_plan = plan_slides(spec, playbook_id=playbook_id)
+        if run_context:
+            run_context.end_stage("plan_slides")
+
+        if run_context:
+            run_context.start_stage("convert_spec")
+        deck_definition = convert_spec_to_deck(spec)
+        if run_context:
+            run_context.end_stage("convert_spec")
 
     # Primitive resolution (Phase 9 Stage 3).
     # Reads optional 'primitive' and 'content' keys from deck_definition.
@@ -303,13 +335,25 @@ def generate_presentation(
     artifact_paths: dict[str, str] | None = None
     if artifacts_dir is not None:
         try:
-            raw_paths = write_artifacts(
-                Path(artifacts_dir),
-                spec,
-                slide_plan,
-                deck_definition,
-            )
-            artifact_paths = {k: str(v) for k, v in raw_paths.items()}
+            artifacts_dir_path = Path(artifacts_dir)
+            if spec is not None and slide_plan is not None:
+                raw_paths = write_artifacts(
+                    artifacts_dir_path,
+                    spec,
+                    slide_plan,
+                    deck_definition,
+                )
+                artifact_paths = {k: str(v) for k, v in raw_paths.items()}
+            else:
+                # Direct deck input: no spec or plan — write only the
+                # resolved deck definition.
+                artifacts_dir_path.mkdir(parents=True, exist_ok=True)
+                deck_path = artifacts_dir_path / "deck_definition.json"
+                deck_path.write_text(
+                    json.dumps(deck_definition, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                artifact_paths = {"deck_definition": str(deck_path)}
             if resolved_style_map is not None:
                 snapshot_path = Path(artifacts_dir) / "resolved_theme_snapshot.json"
                 snapshot_path.parent.mkdir(parents=True, exist_ok=True)
@@ -487,6 +531,259 @@ def _resolve_layout(
 
 
 # ---------------------------------------------------------------------------
+# Structured deck detection and validation
+# ---------------------------------------------------------------------------
+
+# All top-level keys that a valid structured deck definition may contain.
+# Any key outside this set is an orphan (e.g. a mis-placed content block)
+# and should be rejected before the Phase 9 resolution stages run.
+_ALLOWED_STRUCTURED_DECK_KEYS: frozenset[str] = frozenset({
+    # Legacy deck wrapper and slides list
+    "deck", "slides",
+    # Phase 9 root-format metadata fields (promoted into deck by normalizer)
+    "title", "subtitle", "author", "template",
+    "version", "date", "status", "description", "tags",
+    # Phase 9 top-level resolution fields
+    "primitive", "theme", "content", "layout", "slots",
+})
+
+
+def _validate_structured_deck_shape(data: dict) -> None:
+    """Raise :class:`PipelineError` if *data* is not a well-formed structured deck.
+
+    Called immediately after :func:`_try_parse_deck_definition` succeeds, before
+    any Phase 9 resolution stage runs.  This converts downstream ``TypeError`` /
+    ``AttributeError`` failures into an explicit HTTP 400 ``PipelineError``.
+
+    Validation rules (minimal — do not over-constrain valid Phase 9 input):
+
+    1. No unknown top-level keys.  Known keys are listed in
+       ``_ALLOWED_STRUCTURED_DECK_KEYS``.  Orphan blocks (e.g. an ``icon:`` or
+       ``component:`` key placed at root level) are rejected here rather than
+       silently leaking into asset resolution.
+
+    2. ``slides`` is non-empty.  A deck with zero slides cannot produce a
+       presentation and is structurally invalid.
+
+    3. Every element of ``slides`` is a mapping (dict).  Scalar or list entries
+       would cause ``TypeError`` deep in the pipeline.
+
+    4. Every slide has ``type`` or ``primitive``.  Slides with neither cannot be
+       dispatched by the schema discriminator and produce confusing errors later.
+    """
+    unknown = set(data) - _ALLOWED_STRUCTURED_DECK_KEYS
+    if unknown:
+        raise PipelineError(
+            f"Structured deck input contains unexpected top-level key(s): "
+            f"{sorted(unknown)}.  "
+            f"Remove orphan keys or move content under 'slides'."
+        )
+
+    slides = data.get("slides")
+    if not slides:
+        raise PipelineError(
+            "Structured deck input has an empty 'slides' list.  "
+            "Provide at least one slide with a 'type' or 'primitive' key."
+        )
+
+    for i, slide in enumerate(slides):
+        if not isinstance(slide, dict):
+            raise PipelineError(
+                f"Structured deck: slide {i} is not a mapping "
+                f"(got {type(slide).__name__}).  Each slide must be a YAML mapping."
+            )
+        if "type" not in slide and "primitive" not in slide:
+            raise PipelineError(
+                f"Structured deck: slide {i} has neither 'type' nor 'primitive'.  "
+                f"Every slide must declare one of these keys."
+            )
+
+
+def _try_parse_deck_definition(text: str) -> dict[str, Any] | None:
+    """Return a parsed deck definition dict if *text* is structured deck YAML.
+
+    A structured deck definition is identified by a top-level ``slides`` key
+    whose value is a list.  This shape never appears in narrative text input
+    (meeting notes, ADO summaries, etc.) when YAML-parsed, making it a safe
+    discriminator.
+
+    Returns ``None`` for any input that is not a structured deck definition:
+    YAML parse failure, non-dict result, missing or non-list ``slides`` key.
+    """
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    if not isinstance(data.get("slides"), list):
+        return None
+    return data
+
+
+# ---------------------------------------------------------------------------
+# Primitive-slide normalisation (pre-render)
+# ---------------------------------------------------------------------------
+
+# Only MetricItem fields survive the strip — MetricItem.extra="forbid" rejects
+# any extra keys such as resolved asset dicts injected into metric items.
+_METRIC_ITEM_FIELDS: frozenset[str] = frozenset({"label", "value", "unit"})
+
+# Maps each Phase 9 primitive ID to the legacy type string the renderer knows.
+_PRIMITIVE_TO_LEGACY_TYPE: dict[str, str] = {
+    "title_slide":      "title",
+    "section_slide":    "section",
+    "bullet_slide":     "bullets",
+    "summary_slide":    "bullets",
+    "comparison_slide": "two_column",
+    "metrics_slide":    "metric_summary",
+    "image_text_slide": "image_caption",
+}
+
+
+def _primitive_slide_to_legacy(slide: dict[str, Any]) -> dict[str, Any]:
+    """Return a legacy slide dict for a single ``primitive:``-keyed slide.
+
+    Converts Phase 9 semantic content fields to the exact field names expected
+    by the Pydantic slide models and slide renderers.  Called by
+    :func:`_normalize_primitive_slides` for every slide that carries a
+    ``primitive`` key.
+    """
+    primitive: str = slide.get("primitive", "")
+    content: dict[str, Any] = slide.get("content") or {}
+    # Preserve bookkeeping fields that exist on every slide base
+    base: dict[str, Any] = {
+        k: slide[k] for k in ("id", "notes", "visible") if k in slide
+    }
+    base.setdefault("visible", True)
+
+    if primitive == "title_slide":
+        return {
+            **base,
+            "type": "title",
+            "title": str(content.get("title") or ""),
+            # subtitle is Field(min_length=1) — use a single space when absent
+            "subtitle": str(content.get("subtitle") or " "),
+        }
+
+    if primitive == "section_slide":
+        return {
+            **base,
+            "type": "section",
+            "section_title": str(
+                content.get("heading") or content.get("title") or ""
+            ),
+            "section_subtitle": str(content.get("description") or "") or None,
+        }
+
+    if primitive in ("bullet_slide", "summary_slide"):
+        raw_bullets = content.get("bullets") or content.get("key_points") or []
+        bullets = [str(b) for b in raw_bullets if b is not None] or ["(no content)"]
+        return {
+            **base,
+            "type": "bullets",
+            "title": str(content.get("title") or ""),
+            "bullets": bullets,
+        }
+
+    if primitive == "comparison_slide":
+        # Accept both nested shape ({left: {title, bullets}}) and flat shape
+        # ({left_title, left_points}).
+        if "left" in content and isinstance(content["left"], dict):
+            left = content["left"]
+            right = content.get("right") or {}
+            title = str(left.get("title") or content.get("title") or "")
+            left_c = [str(x) for x in (left.get("points") or left.get("bullets") or [])]
+            right_c = [str(x) for x in (right.get("points") or right.get("bullets") or [])]
+        else:
+            title = str(content.get("left_title") or content.get("title") or "")
+            left_c = [str(x) for x in (content.get("left_points") or content.get("left_content") or [])]
+            right_c = [str(x) for x in (content.get("right_points") or content.get("right_content") or [])]
+        # left_content/right_content are Field(min_length=1) — must have ≥1 item
+        return {
+            **base,
+            "type": "two_column",
+            "title": title or " ",
+            "left_content":  left_c  or ["—"],
+            "right_content": right_c or ["—"],
+        }
+
+    if primitive == "metrics_slide":
+        raw_metrics = content.get("metrics") or []
+        # Strip extra fields (e.g. asset-resolved icon dicts) — MetricItem.extra="forbid"
+        metrics = [
+            {k: v for k, v in m.items() if k in _METRIC_ITEM_FIELDS}
+            for m in raw_metrics
+            if isinstance(m, dict) and "label" in m and "value" in m
+        ]
+        return {
+            **base,
+            "type": "metric_summary",
+            "title": str(content.get("title") or ""),
+            "metrics": metrics or [{"label": "—", "value": "—"}],
+        }
+
+    if primitive == "image_text_slide":
+        image = content.get("image") or {}
+        # After asset resolution, image dict contains resolved_source
+        image_path = (
+            str(image.get("resolved_source") or image.get("url") or "")
+            if isinstance(image, dict)
+            else str(image)
+        )
+        description = content.get("description") or {}
+        caption = (
+            str(description.get("text") or "")
+            if isinstance(description, dict)
+            else str(description)
+        )
+        return {
+            **base,
+            "type": "image_caption",
+            "title":      str(content.get("title") or ""),
+            "image_path": image_path or " ",
+            "caption":    caption    or " ",
+        }
+
+    # Unknown primitive — emit a blank title slide rather than crashing.
+    return {
+        **base,
+        "type": "title",
+        "title":    str(content.get("title") or f"[{primitive}]"),
+        "subtitle": " ",
+    }
+
+
+def _normalize_primitive_slides(deck_definition: dict[str, Any]) -> dict[str, Any]:
+    """Convert every per-slide ``primitive:`` entry to its legacy ``type:`` equivalent.
+
+    The renderer only understands legacy type-discriminated slides.  This
+    function is called immediately before :func:`parse_deck` inside
+    :func:`_render` so that fully-resolved Phase 9 primitive slides (after
+    token/asset resolution) are translated into the exact shapes the Pydantic
+    slide models and slide renderers expect.
+
+    Slides that already carry a ``type:`` key are passed through unchanged
+    (full backward compatibility).  If no ``primitive``-keyed slides are
+    present the original dict is returned without copying.
+    """
+    slides = deck_definition.get("slides")
+    if not isinstance(slides, list):
+        return deck_definition
+
+    if not any(isinstance(s, dict) and "primitive" in s for s in slides):
+        return deck_definition  # fast path — no primitive slides
+
+    normalized_slides = [
+        _primitive_slide_to_legacy(s)
+        if (isinstance(s, dict) and "primitive" in s)
+        else s
+        for s in slides
+    ]
+    return {**deck_definition, "slides": normalized_slides}
+
+
+# ---------------------------------------------------------------------------
 # Internal rendering helper
 # ---------------------------------------------------------------------------
 
@@ -497,7 +794,8 @@ def _render(
 ) -> None:
     """Load *deck_definition*, resolve template, and write a .pptx."""
     try:
-        deck = parse_deck(deck_definition)
+        normalized = _normalize_primitive_slides(deck_definition)
+        deck = parse_deck(normalized)
         registry = TemplateRegistry.from_file(_REGISTRY_PATH)
         entry = registry.get(spec_template)
         template_path = _REGISTRY_PATH.parent.parent / entry.path
