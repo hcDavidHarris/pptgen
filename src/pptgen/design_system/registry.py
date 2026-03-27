@@ -1,4 +1,4 @@
-"""Design system registry — Phase 9 Stage 1 / Stage 2 / Stage 3.
+"""Design system registry — Phase 9 Stage 1 / Stage 2 / Stage 3 / Stage 4.
 
 File-backed registry that discovers, validates, and loads design system
 artifacts from the canonical directory layout::
@@ -14,6 +14,8 @@ artifacts from the canonical directory layout::
         <layout_id>.yaml
       primitives/
         <primitive_id>.yaml
+      assets/
+        <asset_id>.yaml   (e.g. icon.check.yaml)
 """
 
 from __future__ import annotations
@@ -23,10 +25,14 @@ from typing import Any
 
 import yaml
 
+from .asset_models import VALID_ASSET_TYPES, AssetDefinition
 from .exceptions import (
     DesignSystemSchemaError,
+    InvalidAssetDefinitionError,
+    InvalidAssetTypeError,
     InvalidLayoutDefinitionError,
     InvalidPrimitiveDefinitionError,
+    UnknownAssetError,
     UnknownBrandError,
     UnknownLayoutError,
     UnknownPrimitiveError,
@@ -47,6 +53,7 @@ _BRAND_KEYS = {"schema_version", "brand_id", "version", "token_overrides"}
 _THEME_KEYS = {"schema_version", "theme_id", "version", "brand_id"}
 _LAYOUT_KEYS = {"schema_version", "layout_id", "version", "regions"}
 _PRIMITIVE_KEYS = {"schema_version", "primitive_id", "version", "layout_id", "slots"}
+_ASSET_KEYS = {"schema_version", "asset_id", "version", "type", "source"}
 
 
 class DesignSystemRegistry:
@@ -334,6 +341,69 @@ class DesignSystemRegistry:
         if not primitives_dir.is_dir():
             return []
         return sorted(p.stem for p in primitives_dir.glob("*.yaml"))
+
+    def get_asset(self, asset_id: str) -> AssetDefinition:
+        """Load an asset definition by ID.
+
+        Args:
+            asset_id: Dot-separated asset identifier — must match a filename
+                stem under ``assets/`` (e.g. ``"icon.check"`` →
+                ``assets/icon.check.yaml``).
+
+        Raises:
+            UnknownAssetError: If no ``assets/<asset_id>.yaml`` exists.
+            InvalidAssetDefinitionError: If the file is malformed or fails
+                schema validation.
+            InvalidAssetTypeError: If the ``type`` field is not a recognised
+                asset type.
+        """
+        path = self._root / "assets" / f"{asset_id}.yaml"
+        if not path.exists():
+            available = self.list_assets()
+            raise UnknownAssetError(
+                f"Asset '{asset_id}' not found. "
+                f"Available: {', '.join(sorted(available)) or '(none)'}."
+            )
+        try:
+            data = self._load_yaml(path)
+        except DesignSystemSchemaError as exc:
+            raise InvalidAssetDefinitionError(str(exc)) from exc
+
+        missing = sorted(_ASSET_KEYS - set(data))
+        if missing:
+            raise InvalidAssetDefinitionError(
+                f"Missing required key(s) {missing} in {path}."
+            )
+
+        asset_type = str(data["type"])
+        if asset_type not in VALID_ASSET_TYPES:
+            raise InvalidAssetTypeError(
+                f"Asset '{asset_id}' in {path} declares unsupported type "
+                f"'{asset_type}'. Valid types: {sorted(VALID_ASSET_TYPES)}."
+            )
+
+        raw_metadata = data.get("metadata") or {}
+        if not isinstance(raw_metadata, dict):
+            raise InvalidAssetDefinitionError(
+                f"'metadata' in {path} must be a mapping, got "
+                f"{type(raw_metadata).__name__}."
+            )
+
+        return AssetDefinition(
+            asset_id=str(data["asset_id"]),
+            version=str(data["version"]),
+            schema_version=int(data["schema_version"]),
+            type=asset_type,
+            source=str(data["source"]),
+            metadata=dict(raw_metadata),
+        )
+
+    def list_assets(self) -> list[str]:
+        """Return a sorted list of registered asset IDs."""
+        assets_dir = self._root / "assets"
+        if not assets_dir.is_dir():
+            return []
+        return sorted(p.stem for p in assets_dir.glob("*.yaml"))
 
     # ------------------------------------------------------------------
     # Internal helpers

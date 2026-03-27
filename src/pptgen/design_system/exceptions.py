@@ -88,3 +88,20 @@ class InvalidContentTypeError(DesignSystemError):
 
 class InvalidPrimitiveDefinitionError(DesignSystemError):
     """A primitive YAML file is structurally invalid or fails schema validation."""
+
+
+# ---------------------------------------------------------------------------
+# Stage 4 — Asset system exceptions
+# ---------------------------------------------------------------------------
+
+
+class UnknownAssetError(DesignSystemError):
+    """Deck content references an asset ID that does not exist in the registry."""
+
+
+class InvalidAssetTypeError(DesignSystemError):
+    """An asset definition declares an unsupported ``type`` value."""
+
+
+class InvalidAssetDefinitionError(DesignSystemError):
+    """An asset YAML file is structurally invalid or fails schema validation."""

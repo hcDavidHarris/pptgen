@@ -1,4 +1,4 @@
-"""Design system — Phase 9 Stage 1 / Stage 2 / Stage 3.
+"""Design system — Phase 9 Stage 1 / Stage 2 / Stage 3 / Stage 4.
 
 Public API::
 
@@ -41,15 +41,20 @@ Public API::
     )
 """
 
+from .asset_models import AssetDefinition, ResolvedAsset
+from .asset_resolver import AssetResolver
 from .exceptions import (
     DesignSystemError,
     DesignSystemSchemaError,
+    InvalidAssetDefinitionError,
+    InvalidAssetTypeError,
     InvalidContentTypeError,
     InvalidLayoutDefinitionError,
     InvalidPrimitiveDefinitionError,
     InvalidTokenOverrideError,
     MissingRequiredContentError,
     MissingRequiredSlotError,
+    UnknownAssetError,
     UnknownBrandError,
     UnknownContentFieldError,
     UnknownLayoutError,
@@ -95,6 +100,13 @@ __all__ = [
     "ResolvedLayout",
     "UnknownLayoutError",
     "UnknownSlotError",
+    # Stage 4 — assets
+    "AssetDefinition",
+    "AssetResolver",
+    "InvalidAssetDefinitionError",
+    "InvalidAssetTypeError",
+    "ResolvedAsset",
+    "UnknownAssetError",
     # Stage 3 — primitives
     "InvalidContentTypeError",
     "InvalidPrimitiveDefinitionError",

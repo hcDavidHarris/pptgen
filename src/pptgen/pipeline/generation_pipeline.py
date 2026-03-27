@@ -22,6 +22,8 @@ Current pipeline::
         ├─ [if theme resolved]
         │   ├─ resolve design tokens     →  ResolvedStyleMap
         │   └─ substitute token refs     →  deck_definition (token refs replaced)
+        ├─ resolve asset references      →  deck_definition (asset refs replaced)
+        │                                   resolved_assets list populated
         ├─ [if output_path given]
         │   └─ render()                  →  .pptx file written
         └─ return PipelineResult(stage="rendered" | "deck_planned", ...)
@@ -37,9 +39,11 @@ from typing import Any
 from ..artifacts import write_artifacts
 from ..config import get_settings
 from ..design_system import (
+    AssetResolver,
     DesignSystemRegistry,
     LayoutResolver,
     PrimitiveResolver,
+    ResolvedAsset,
     ResolvedLayout,
     ResolvedSlidePrimitive,
     ResolvedStyleMap,
@@ -100,6 +104,7 @@ class PipelineResult:
     resolved_style_map: ResolvedStyleMap | None = field(default=None)
     resolved_layout: ResolvedLayout | None = field(default=None)
     resolved_primitive: ResolvedSlidePrimitive | None = field(default=None)
+    resolved_assets: list[ResolvedAsset] | None = field(default=None)
 
 
 def generate_presentation(
@@ -269,6 +274,23 @@ def generate_presentation(
             if run_context:
                 run_context.end_stage("resolve_tokens")
 
+    # Asset resolution (Phase 9 Stage 4).
+    # Always runs on valid deck_definition — a no-op when no asset_id refs exist.
+    resolved_assets: list[ResolvedAsset] | None = None
+    if isinstance(deck_definition, dict):
+        if run_context:
+            run_context.start_stage("resolve_assets")
+        try:
+            asset_registry = DesignSystemRegistry(settings.design_system_root)
+            deck_definition, resolved_assets = AssetResolver().resolve_references(
+                deck_definition, asset_registry
+            )
+        except DesignSystemError as exc:
+            raise PipelineError(str(exc)) from exc
+        finally:
+            if run_context:
+                run_context.end_stage("resolve_assets")
+
     # Compose diagnostic notes
     notes_parts: list[str] = []
     if not normalised:
@@ -314,6 +336,19 @@ def generate_presentation(
                     encoding="utf-8",
                 )
                 artifact_paths["resolved_primitive_snapshot"] = str(primitive_snapshot_path)
+            if resolved_assets:
+                assets_snapshot_path = (
+                    Path(artifacts_dir) / "resolved_assets_snapshot.json"
+                )
+                assets_snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                assets_snapshot_path.write_text(
+                    json.dumps(
+                        {"assets": [a.to_dict() for a in resolved_assets]},
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+                artifact_paths["resolved_assets_snapshot"] = str(assets_snapshot_path)
         except OSError as exc:
             raise PipelineError(f"Artifact export failed: {exc}") from exc
 
@@ -332,6 +367,7 @@ def generate_presentation(
             resolved_style_map=resolved_style_map,
             resolved_layout=resolved_layout,
             resolved_primitive=resolved_primitive,
+            resolved_assets=resolved_assets,
         )
 
     if run_context:
@@ -355,6 +391,7 @@ def generate_presentation(
         resolved_style_map=resolved_style_map,
         resolved_layout=resolved_layout,
         resolved_primitive=resolved_primitive,
+        resolved_assets=resolved_assets,
     )
 
 
