@@ -42,11 +42,13 @@ Public API::
 """
 
 from .asset_models import AssetDefinition, ResolvedAsset
+from .dependency_models import ResolvedArtifactDependency, record_dependency
 from .governance_models import GovernedArtifactFamily, GovernedArtifactVersion, LifecycleStatus
 from .asset_resolver import AssetResolver
 from .exceptions import (
     DesignSystemError,
     DesignSystemSchemaError,
+    GovernanceViolationError,
     InvalidAssetDefinitionError,
     InvalidAssetTypeError,
     InvalidContentTypeError,
@@ -81,7 +83,11 @@ __all__ = [
     # Phase 10A — governance models
     "GovernedArtifactFamily",
     "GovernedArtifactVersion",
+    "GovernanceViolationError",
     "LifecycleStatus",
+    # Phase 10C — dependency capture
+    "ResolvedArtifactDependency",
+    "record_dependency",
     # Stage 1 — tokens
     "BaseTokenSet",
     "BrandPack",

@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from .asset_models import ASSET_REF_KEY, ResolvedAsset
+from .dependency_models import ResolvedArtifactDependency, record_dependency
 from .exceptions import UnknownAssetError
 from .registry import DesignSystemRegistry
 
@@ -31,6 +32,10 @@ class AssetResolver:
         self,
         deck_definition: dict[str, Any],
         registry: DesignSystemRegistry,
+        *,
+        allow_draft: bool = False,
+        governance_warnings: list[str] | None = None,
+        dependency_chain: list[ResolvedArtifactDependency] | None = None,
     ) -> tuple[dict[str, Any], list[ResolvedAsset]]:
         """Walk *deck_definition* and replace every asset reference in-place.
 
@@ -60,7 +65,12 @@ class AssetResolver:
                                       type.
         """
         resolved_index: dict[str, ResolvedAsset] = {}
-        new_deck = _walk(deck_definition, registry, resolved_index)
+        new_deck = _walk(
+            deck_definition, registry, resolved_index,
+            allow_draft=allow_draft,
+            governance_warnings=governance_warnings,
+            dependency_chain=dependency_chain,
+        )
         # Preserve first-occurrence order.
         return new_deck, list(resolved_index.values())
 
@@ -73,14 +83,39 @@ def _walk(
     obj: Any,
     registry: DesignSystemRegistry,
     resolved_index: dict[str, ResolvedAsset],
+    *,
+    allow_draft: bool = False,
+    governance_warnings: list[str] | None = None,
+    dependency_chain: list[ResolvedArtifactDependency] | None = None,
 ) -> Any:
     """Recursively walk *obj*, resolving asset references."""
     if isinstance(obj, dict):
         if ASSET_REF_KEY in obj:
-            return _resolve_ref(obj, registry, resolved_index)
-        return {k: _walk(v, registry, resolved_index) for k, v in obj.items()}
+            return _resolve_ref(
+                obj, registry, resolved_index,
+                allow_draft=allow_draft,
+                governance_warnings=governance_warnings,
+                dependency_chain=dependency_chain,
+            )
+        return {
+            k: _walk(
+                v, registry, resolved_index,
+                allow_draft=allow_draft,
+                governance_warnings=governance_warnings,
+                dependency_chain=dependency_chain,
+            )
+            for k, v in obj.items()
+        }
     if isinstance(obj, list):
-        return [_walk(item, registry, resolved_index) for item in obj]
+        return [
+            _walk(
+                item, registry, resolved_index,
+                allow_draft=allow_draft,
+                governance_warnings=governance_warnings,
+                dependency_chain=dependency_chain,
+            )
+            for item in obj
+        ]
     return obj
 
 
@@ -88,14 +123,21 @@ def _resolve_ref(
     ref: dict[str, Any],
     registry: DesignSystemRegistry,
     resolved_index: dict[str, ResolvedAsset],
+    *,
+    allow_draft: bool = False,
+    governance_warnings: list[str] | None = None,
+    dependency_chain: list[ResolvedArtifactDependency] | None = None,
 ) -> dict[str, Any]:
     """Resolve a single ``{asset_id: ...}`` reference dict.
 
     Caches resolved assets in *resolved_index* so each asset is only looked
-    up once per resolution pass (deterministic, no repeat I/O).
+    up once per resolution pass (deterministic, no repeat I/O).  Dependency
+    capture is also guarded by this cache — each asset is recorded at most
+    once per run.
 
     Raises:
         UnknownAssetError: Asset ID is not registered.
+        GovernanceViolationError: When the asset is DRAFT and allow_draft is False.
     """
     asset_id = ref[ASSET_REF_KEY]
     if not isinstance(asset_id, str) or not asset_id:
@@ -107,6 +149,21 @@ def _resolve_ref(
     if asset_id not in resolved_index:
         # Raises UnknownAssetError / InvalidAssetDefinitionError / InvalidAssetTypeError.
         definition = registry.get_asset(asset_id)
+        registry.enforce_artifact_lifecycle(
+            "asset", asset_id, definition.version,
+            allow_draft=allow_draft,
+            warnings=governance_warnings,
+        )
+        if dependency_chain is not None:
+            gov = registry.get_artifact_governance(
+                "asset", asset_id, definition.version
+            )
+            record_dependency(
+                dependency_chain,
+                "asset", asset_id, definition.version,
+                gov.lifecycle_status.value if gov else None,
+                "asset",
+            )
         resolved_index[asset_id] = ResolvedAsset(
             asset_id=definition.asset_id,
             version=definition.version,

@@ -35,7 +35,10 @@ Current pipeline::
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import dataclass, field
+from dataclasses import replace as _dc_replace
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -48,13 +51,33 @@ from ..design_system import (
     DesignSystemRegistry,
     LayoutResolver,
     PrimitiveResolver,
+    ResolvedArtifactDependency,
     ResolvedAsset,
     ResolvedLayout,
     ResolvedSlidePrimitive,
     ResolvedStyleMap,
     TokenResolver,
 )
-from ..design_system.exceptions import DesignSystemError
+from ..analytics import (
+    ArtifactUsageEvent,
+    ArtifactUsageRecord,
+    FailureAttribution,
+    GovernanceAuditEvent,
+    GovernanceTelemetryCollector,
+    RunFailureAttribution,
+    RunRecord,
+)
+from ..analytics.aggregate_summarizer import update_daily_aggregates
+from ..analytics.writer import (
+    update_aggregates,
+    write_audit_events,
+    write_failure_attribution,
+    write_run_record,
+    write_usage_events,
+    write_usage_snapshot,
+)
+from ..design_system.dependency_models import record_dependency
+from ..design_system.exceptions import DesignSystemError, GovernanceViolationError
 from ..errors import InputSizeError, PptgenError as _PptgenError
 from ..input_router import InputRouterError, route_input
 from ..loaders.yaml_loader import parse_deck
@@ -110,6 +133,36 @@ class PipelineResult:
     resolved_layout: ResolvedLayout | None = field(default=None)
     resolved_primitive: ResolvedSlidePrimitive | None = field(default=None)
     resolved_assets: list[ResolvedAsset] | None = field(default=None)
+    governance_warnings: list[str] = field(default_factory=list)
+    dependency_chain: list[ResolvedArtifactDependency] = field(default_factory=list)
+    # Phase 10D.2 — analytics identifiers.
+    #: UUID generated at the start of the pipeline run.  Empty string only
+    #: when PipelineResult is constructed outside of generate_presentation()
+    #: (e.g. in tests that build the dataclass directly).
+    run_id: str = field(default="")
+    #: Always ``None`` on the success path — PipelineResult is only returned
+    #: when the run completes without exception.  Present as a field so that
+    #: Phase 10D.3 can embed it in RunRecord for correlation.
+    failure_attribution: FailureAttribution | None = field(default=None)
+    # Phase 10D.3 — per-run analytics records.
+    #: Top-level summary of this run.  Always set by generate_presentation().
+    #: ``None`` only when PipelineResult is constructed directly (e.g. tests).
+    run_record: RunRecord | None = field(default=None)
+    #: One :class:`~pptgen.analytics.ArtifactUsageEvent` per entry in
+    #: :attr:`dependency_chain`.  Empty when no governed artifacts were resolved.
+    usage_events: list[ArtifactUsageEvent] = field(default_factory=list)
+    #: Governance audit events emitted during this run (draft overrides and
+    #: deprecated-artifact uses).  ``run_id`` is backfilled on all events.
+    #: Empty when no overrides or deprecations occurred.
+    #: Sourced from GovernanceTelemetryCollector.get_audit_events() after run.
+    # TODO(10D): consider reducing to summary/path instead of full payload once
+    #            a persistent store is in place (Phase 10D.6+).
+    audit_events: list[GovernanceAuditEvent] = field(default_factory=list)
+    #: Phase 10D.4 — richer per-artifact usage records, one per distinct
+    #: (artifact_type, artifact_family, artifact_version, usage_scope) seen.
+    #: Finalised (run_id backfilled, success/failure flag set) before return.
+    #: Empty when no governed artifacts were resolved.
+    usage_records: list[ArtifactUsageRecord] = field(default_factory=list)
 
 
 def generate_presentation(
@@ -157,6 +210,16 @@ def generate_presentation(
             f"generate_presentation() expects a str, "
             f"got {type(input_text).__name__!r}."
         )
+
+    # Phase 10D.2 / 10D.3 — generate a UUID and capture start time for this run.
+    # run_id is the correlation key across PipelineResult, RunRecord,
+    # ArtifactUsageEvent, and GovernanceAuditEvent.
+    run_id = str(uuid.uuid4())
+    run_start_utc = datetime.now(timezone.utc)
+    # Populated inside each resolution-stage except block before re-raising.
+    # Remains None on the success path (PipelineResult is only returned then).
+    # Phase 10D.3 reads this to embed in RunRecord.
+    _failure_attribution: FailureAttribution | None = None
 
     # Normalise mode to a plain string for consistent comparison and storage.
     mode_str: str = mode.value if isinstance(mode, ExecutionMode) else mode
@@ -244,6 +307,13 @@ def generate_presentation(
         if run_context:
             run_context.end_stage("convert_spec")
 
+    # Governance warnings and dependency chain accumulated across all resolution
+    # stages (Phase 10B / 10C).  The telemetry collector owns audit events.
+    governance_warnings: list[str] = []
+    dependency_chain: list[ResolvedArtifactDependency] = []
+    # Phase 10D.5/10D.4 — one collector per run; passed (as telemetry=) to helpers.
+    _telemetry = GovernanceTelemetryCollector(run_ts=run_start_utc)
+
     # Primitive resolution (Phase 9 Stage 3).
     # Reads optional 'primitive' and 'content' keys from deck_definition.
     # On success, injects 'layout' and 'slots' so the layout stage runs normally.
@@ -257,7 +327,8 @@ def generate_presentation(
             run_context.start_stage("resolve_primitive")
         try:
             resolved_primitive = _resolve_primitive(
-                str(declared_primitive), deck_definition, settings
+                str(declared_primitive), deck_definition, settings,
+                governance_warnings, dependency_chain, _telemetry,
             )
             # Inject layout + slots so the existing layout stage handles them.
             deck_definition = {
@@ -265,7 +336,22 @@ def generate_presentation(
                 "layout": resolved_primitive.layout_id,
                 "slots": resolved_primitive.resolved_slots,
             }
-        except DesignSystemError as exc:
+        except (DesignSystemError, GovernanceViolationError) as exc:
+            _failure_attribution = FailureAttribution(
+                stage="primitive",
+                artifact_type="primitive",
+                artifact_id=str(declared_primitive),
+                error_type=type(exc).__name__,
+            )
+            _telemetry.record_failure_context(
+                exc, candidate_type="primitive",
+                candidate_family=str(declared_primitive),
+                candidate_version=None,
+            )
+            _telemetry.finalize_usage(False, run_id=run_id)
+            _write_failure_telemetry_nonblocking(
+                _telemetry, settings, run_id, run_start_utc.date()
+            )
             raise PipelineError(str(exc)) from exc
         finally:
             if run_context:
@@ -281,9 +367,26 @@ def generate_presentation(
             run_context.start_stage("resolve_layout")
         try:
             resolved_layout = _resolve_layout(
-                str(declared_layout), deck_definition, settings
+                str(declared_layout), deck_definition, settings,
+                governance_warnings, dependency_chain, _telemetry,
+                layout_usage_scope="dependency" if declared_primitive else "top_level",
             )
-        except DesignSystemError as exc:
+        except (DesignSystemError, GovernanceViolationError) as exc:
+            _failure_attribution = FailureAttribution(
+                stage="layout",
+                artifact_type="layout",
+                artifact_id=str(declared_layout),
+                error_type=type(exc).__name__,
+            )
+            _telemetry.record_failure_context(
+                exc, candidate_type="layout",
+                candidate_family=str(declared_layout),
+                candidate_version=None,
+            )
+            _telemetry.finalize_usage(False, run_id=run_id)
+            _write_failure_telemetry_nonblocking(
+                _telemetry, settings, run_id, run_start_utc.date()
+            )
             raise PipelineError(str(exc)) from exc
         finally:
             if run_context:
@@ -297,10 +400,29 @@ def generate_presentation(
         if run_context:
             run_context.start_stage("resolve_tokens")
         try:
-            resolved_style_map = _resolve_design_tokens(effective_theme)
+            resolved_style_map = _resolve_design_tokens(
+                effective_theme, settings, governance_warnings, dependency_chain,
+                _telemetry,
+                theme_resolution_source="explicit" if theme_id else "default",
+            )
             resolver = TokenResolver()
             deck_definition = resolver.resolve_references(deck_definition, resolved_style_map)
-        except DesignSystemError as exc:
+        except (DesignSystemError, GovernanceViolationError) as exc:
+            _failure_attribution = FailureAttribution(
+                stage="theme",
+                artifact_type="theme",
+                artifact_id=effective_theme,
+                error_type=type(exc).__name__,
+            )
+            _telemetry.record_failure_context(
+                exc, candidate_type="theme",
+                candidate_family=effective_theme,
+                candidate_version=None,
+            )
+            _telemetry.finalize_usage(False, run_id=run_id)
+            _write_failure_telemetry_nonblocking(
+                _telemetry, settings, run_id, run_start_utc.date()
+            )
             raise PipelineError(str(exc)) from exc
         finally:
             if run_context:
@@ -315,13 +437,56 @@ def generate_presentation(
         try:
             asset_registry = DesignSystemRegistry(settings.design_system_root)
             deck_definition, resolved_assets = AssetResolver().resolve_references(
-                deck_definition, asset_registry
+                deck_definition, asset_registry,
+                allow_draft=settings.allow_draft_artifacts,
+                governance_warnings=governance_warnings,
+                dependency_chain=dependency_chain,
             )
-        except DesignSystemError as exc:
+        except (DesignSystemError, GovernanceViolationError) as exc:
+            _failure_attribution = FailureAttribution(
+                stage="asset",
+                artifact_type="asset",
+                artifact_id=None,  # multiple assets may be in flight
+                error_type=type(exc).__name__,
+            )
+            _telemetry.record_failure_context(
+                exc, candidate_type="asset",
+                candidate_family=None,
+                candidate_version=None,
+            )
+            _telemetry.finalize_usage(False, run_id=run_id)
+            _write_failure_telemetry_nonblocking(
+                _telemetry, settings, run_id, run_start_utc.date()
+            )
             raise PipelineError(str(exc)) from exc
         finally:
             if run_context:
                 run_context.end_stage("resolve_assets")
+
+    # Per-slide primitive governance — Phase 10C patch.
+    if isinstance(deck_definition, dict):
+        try:
+            _enforce_per_slide_primitive_governance(
+                deck_definition, settings, governance_warnings, dependency_chain,
+                _telemetry,
+            )
+        except (DesignSystemError, GovernanceViolationError) as exc:
+            _failure_attribution = FailureAttribution(
+                stage="primitive",
+                artifact_type="primitive",
+                artifact_id=None,  # multiple per-slide primitives may be in flight
+                error_type=type(exc).__name__,
+            )
+            _telemetry.record_failure_context(
+                exc, candidate_type="primitive",
+                candidate_family=None,
+                candidate_version=None,
+            )
+            _telemetry.finalize_usage(False, run_id=run_id)
+            _write_failure_telemetry_nonblocking(
+                _telemetry, settings, run_id, run_start_utc.date()
+            )
+            raise PipelineError(str(exc)) from exc
 
     # Compose diagnostic notes
     notes_parts: list[str] = []
@@ -334,6 +499,7 @@ def generate_presentation(
     # Optional artifact export
     artifact_paths: dict[str, str] | None = None
     if artifacts_dir is not None:
+        _telemetry.mark_stage("export")
         try:
             artifacts_dir_path = Path(artifacts_dir)
             if spec is not None and slide_plan is not None:
@@ -393,11 +559,39 @@ def generate_presentation(
                     encoding="utf-8",
                 )
                 artifact_paths["resolved_assets_snapshot"] = str(assets_snapshot_path)
+            if dependency_chain:
+                dep_snapshot_path = (
+                    Path(artifacts_dir) / "resolved_dependencies_snapshot.json"
+                )
+                dep_snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+                dep_snapshot_path.write_text(
+                    json.dumps(
+                        {"dependencies": [d.to_dict() for d in dependency_chain]},
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+                artifact_paths["resolved_dependencies_snapshot"] = str(dep_snapshot_path)
         except OSError as exc:
+            _telemetry.record_failure_context(exc)
+            _telemetry.finalize_usage(False, run_id=run_id)
+            _write_failure_telemetry_nonblocking(
+                _telemetry, settings, run_id, run_start_utc.date()
+            )
             raise PipelineError(f"Artifact export failed: {exc}") from exc
 
+    # Phase 10D.3 — build per-run analytics records on the success path.
+    # usage_events is derived once here (same for both return branches).
+    # RunRecord is constructed inline at each return with the correct stage_reached.
+    # Phase 10D.5 — drain the telemetry collector and backfill run_id into the
+    # frozen GovernanceAuditEvent instances before attaching to PipelineResult.
+    # Phase 10D.4 — finalise usage records (backfill run_id, set success flag).
+    _usage_events = _build_usage_events(dependency_chain, run_id, True, settings)
+    _backfilled_audit = _backfill_run_id(_telemetry.get_audit_events(), run_id)
+    _telemetry.finalize_usage(True, run_id=run_id)
+
     if output_path is None:
-        return PipelineResult(
+        _result = PipelineResult(
             stage="deck_planned",
             playbook_id=playbook_id,
             input_text=normalised,
@@ -412,15 +606,37 @@ def generate_presentation(
             resolved_layout=resolved_layout,
             resolved_primitive=resolved_primitive,
             resolved_assets=resolved_assets,
+            governance_warnings=governance_warnings,
+            dependency_chain=dependency_chain,
+            run_id=run_id,
+            run_record=RunRecord(
+                run_id=run_id,
+                timestamp_utc=run_start_utc,
+                mode=mode_str,
+                playbook_id=playbook_id,
+                template_id=resolved_template,
+                theme_id=theme_id,
+                stage_reached="deck_planned",
+                succeeded=True,
+                failure_attribution=None,
+                draft_override_active=settings.allow_draft_artifacts,
+                dependency_count=len(dependency_chain),
+            ),
+            usage_events=_usage_events,
+            audit_events=_backfilled_audit,
+            usage_records=_telemetry.get_usage_records(),
         )
+        _write_telemetry_outputs_nonblocking(_result, settings)
+        return _result
 
+    _telemetry.mark_stage("render")
     if run_context:
         run_context.start_stage("render")
     _render(deck_definition, resolved_template, Path(output_path))
     if run_context:
         run_context.end_stage("render")
 
-    return PipelineResult(
+    _result = PipelineResult(
         stage="rendered",
         playbook_id=playbook_id,
         input_text=normalised,
@@ -436,7 +652,28 @@ def generate_presentation(
         resolved_layout=resolved_layout,
         resolved_primitive=resolved_primitive,
         resolved_assets=resolved_assets,
+        governance_warnings=governance_warnings,
+        dependency_chain=dependency_chain,
+        run_id=run_id,
+        run_record=RunRecord(
+            run_id=run_id,
+            timestamp_utc=run_start_utc,
+            mode=mode_str,
+            playbook_id=playbook_id,
+            template_id=resolved_template,
+            theme_id=theme_id,
+            stage_reached="rendered",
+            succeeded=True,
+            failure_attribution=None,
+            draft_override_active=settings.allow_draft_artifacts,
+            dependency_count=len(dependency_chain),
+        ),
+        usage_events=_usage_events,
+        audit_events=_backfilled_audit,
+        usage_records=_telemetry.get_usage_records(),
     )
+    _write_telemetry_outputs_nonblocking(_result, settings)
+    return _result
 
 
 # ---------------------------------------------------------------------------
@@ -473,16 +710,74 @@ def _validate_template_id(template_id: str) -> None:
 # Design system helpers
 # ---------------------------------------------------------------------------
 
-def _resolve_design_tokens(theme_id: str) -> ResolvedStyleMap:
+def _resolve_design_tokens(
+    theme_id: str,
+    settings: Any,
+    governance_warnings: list[str] | None = None,
+    dependency_chain: list[ResolvedArtifactDependency] | None = None,
+    telemetry: GovernanceTelemetryCollector | None = None,
+    theme_resolution_source: str = "explicit",
+) -> ResolvedStyleMap:
     """Load the design system and resolve *theme_id* to a :class:`ResolvedStyleMap`.
+
+    Records two dependencies when *dependency_chain* is provided:
+
+    1. ``token_set/base`` — captured after lifecycle enforcement on the base
+       token set.  The base token set carries no governance block in current
+       YAML files, so enforcement is a no-op today but will activate
+       automatically if a governance block is added in future.
+    2. ``theme/<id>``     — captured after lifecycle enforcement on the theme.
 
     Raises:
         DesignSystemError: Propagated to caller — results in a PipelineError.
+        GovernanceViolationError: When the token set or theme is DRAFT and
+            allow_draft is False.
     """
-    settings = get_settings()
     registry = DesignSystemRegistry(settings.design_system_root)
     base = registry.load_base_tokens()
+    # Enforce and capture token_set — same pattern as every other artifact type.
+    # In practice the base token set carries no governance block today (no-op),
+    # but the enforcement call ensures a deprecated token set would both warn
+    # and appear in dependency_chain with the correct lifecycle_status.
+    _eff_telemetry = telemetry if telemetry is not None else GovernanceTelemetryCollector()
+    _eff_warnings = governance_warnings if governance_warnings is not None else []
+    _enforce_with_audit(
+        registry, "token_set", "base", base.version,
+        allow_draft=settings.allow_draft_artifacts,
+        governance_warnings=_eff_warnings,
+        telemetry=_eff_telemetry,
+        usage_scope="dependency",
+        resolution_source="explicit",
+    )
+    if dependency_chain is not None:
+        token_gov = registry.get_artifact_governance(
+            "token_set", "base", base.version
+        )
+        record_dependency(
+            dependency_chain,
+            "token_set", "base", base.version,
+            token_gov.lifecycle_status.value if token_gov else None,
+            "token_set",
+        )
     theme = registry.get_theme(theme_id)
+    _enforce_with_audit(
+        registry, "theme", theme.theme_id, theme.version,
+        allow_draft=settings.allow_draft_artifacts,
+        governance_warnings=_eff_warnings,
+        telemetry=_eff_telemetry,
+        usage_scope="top_level",
+        resolution_source=theme_resolution_source,
+    )
+    if dependency_chain is not None:
+        theme_gov = registry.get_artifact_governance(
+            "theme", theme.theme_id, theme.version
+        )
+        record_dependency(
+            dependency_chain,
+            "theme", theme.theme_id, theme.version,
+            theme_gov.lifecycle_status.value if theme_gov else None,
+            "theme",
+        )
     brand = registry.get_brand(theme.brand_id)
     resolver = TokenResolver()
     return resolver.resolve(base, brand, theme)
@@ -492,6 +787,9 @@ def _resolve_primitive(
     primitive_id: str,
     deck_definition: dict[str, Any],
     settings: Any,
+    governance_warnings: list[str] | None = None,
+    dependency_chain: list[ResolvedArtifactDependency] | None = None,
+    telemetry: GovernanceTelemetryCollector | None = None,
 ) -> ResolvedSlidePrimitive:
     """Load the primitive registry and resolve *primitive_id* against the
     declared content fields.
@@ -501,19 +799,43 @@ def _resolve_primitive(
 
     Raises:
         DesignSystemError: Propagated to caller — results in a PipelineError.
+        GovernanceViolationError: When primitive is DRAFT and allow_draft is False.
     """
     registry = DesignSystemRegistry(settings.design_system_root)
     content = deck_definition.get("content") or {}
     if not isinstance(content, dict):
         content = {}
     resolver = PrimitiveResolver()
-    return resolver.resolve(primitive_id, content, registry)
+    resolved = resolver.resolve(primitive_id, content, registry)
+    _enforce_with_audit(
+        registry, "primitive", primitive_id, resolved.primitive_version,
+        allow_draft=settings.allow_draft_artifacts,
+        governance_warnings=governance_warnings if governance_warnings is not None else [],
+        telemetry=telemetry if telemetry is not None else GovernanceTelemetryCollector(),
+        usage_scope="top_level",
+        resolution_source="explicit",
+    )
+    if dependency_chain is not None:
+        gov = registry.get_artifact_governance(
+            "primitive", primitive_id, resolved.primitive_version
+        )
+        record_dependency(
+            dependency_chain,
+            "primitive", primitive_id, resolved.primitive_version,
+            gov.lifecycle_status.value if gov else None,
+            "primitive",
+        )
+    return resolved
 
 
 def _resolve_layout(
     layout_id: str,
     deck_definition: dict[str, Any],
     settings: Any,
+    governance_warnings: list[str] | None = None,
+    dependency_chain: list[ResolvedArtifactDependency] | None = None,
+    telemetry: GovernanceTelemetryCollector | None = None,
+    layout_usage_scope: str = "top_level",
 ) -> ResolvedLayout:
     """Load the layout registry and resolve *layout_id* against the declared slots.
 
@@ -522,12 +844,380 @@ def _resolve_layout(
 
     Raises:
         DesignSystemError: Propagated to caller — results in a PipelineError.
+        GovernanceViolationError: When layout is DRAFT and allow_draft is False.
     """
     registry = DesignSystemRegistry(settings.design_system_root)
     raw_slots = deck_definition.get("slots") or {}
     provided_slots = list(raw_slots.keys()) if isinstance(raw_slots, dict) else []
     resolver = LayoutResolver()
-    return resolver.resolve(layout_id, provided_slots, registry)
+    resolved = resolver.resolve(layout_id, provided_slots, registry)
+    _enforce_with_audit(
+        registry, "layout", layout_id, resolved.layout_version,
+        allow_draft=settings.allow_draft_artifacts,
+        governance_warnings=governance_warnings if governance_warnings is not None else [],
+        telemetry=telemetry if telemetry is not None else GovernanceTelemetryCollector(),
+        usage_scope=layout_usage_scope,
+        resolution_source="explicit",
+    )
+    if dependency_chain is not None:
+        gov = registry.get_artifact_governance(
+            "layout", layout_id, resolved.layout_version
+        )
+        record_dependency(
+            dependency_chain,
+            "layout", layout_id, resolved.layout_version,
+            gov.lifecycle_status.value if gov else None,
+            "layout",
+        )
+    return resolved
+
+
+# ---------------------------------------------------------------------------
+# Per-slide primitive governance — Phase 10C patch
+# ---------------------------------------------------------------------------
+
+def _enforce_per_slide_primitive_governance(
+    deck_definition: dict[str, Any],
+    settings: Any,
+    governance_warnings: list[str],
+    dependency_chain: list[ResolvedArtifactDependency],
+    telemetry: GovernanceTelemetryCollector | None = None,
+) -> None:
+    """Enforce lifecycle and record dependency for per-slide ``primitive:`` entries.
+
+    The main resolution stages only inspect the **top-level** ``primitive:`` key
+    of ``deck_definition``.  Per-slide primitives — slide dicts inside
+    ``deck_definition["slides"]`` that carry a ``primitive:`` key — were
+    previously invisible to governance.  This helper closes that gap.
+
+    Algorithm
+    ---------
+    1. Walk ``deck_definition["slides"]``.
+    2. For each slide dict with a ``primitive:`` string key, collect unique IDs
+       (``seen_in_slides`` prevents re-processing the same primitive ID for
+       every slide that uses it).
+    3. Load the primitive YAML once per ID via ``registry.get_primitive()`` to
+       obtain the version string.  If the primitive cannot be loaded (unknown or
+       malformed YAML), skip silently — the error will surface at render time
+       through ``_normalize_primitive_slides()``.
+    4. Enforce lifecycle *only* when the primitive is not already present in
+       ``dependency_chain`` (i.e. not already enforced via top-level
+       ``_resolve_primitive``).  This prevents a second deprecation warning for
+       the same artifact when both a top-level and per-slide declaration exist.
+    5. Always call ``record_dependency()``; its built-in dedup makes it a no-op
+       for primitives already captured.
+
+    Raises:
+        GovernanceViolationError: If a DRAFT primitive is encountered and
+            ``allow_draft_artifacts`` is ``False``.  Propagates to the caller
+            where it is wrapped as a :class:`PipelineError`.
+    """
+    slides = deck_definition.get("slides")
+    if not isinstance(slides, list) or not slides:
+        return
+
+    # Primitive IDs already captured through top-level resolution — used to
+    # suppress duplicate warnings, not to suppress dependency recording.
+    already_governed: set[str] = {
+        d.artifact_id
+        for d in dependency_chain
+        if d.artifact_type == "primitive"
+    }
+
+    registry = DesignSystemRegistry(settings.design_system_root)
+    seen_in_slides: set[str] = set()
+
+    for slide in slides:
+        if not isinstance(slide, dict):
+            continue
+        raw_primitive = slide.get("primitive")
+        if not raw_primitive or not isinstance(raw_primitive, str):
+            continue
+        primitive_id = raw_primitive
+        if primitive_id in seen_in_slides:
+            continue  # already processed this ID in an earlier slide
+        seen_in_slides.add(primitive_id)
+
+        try:
+            definition = registry.get_primitive(primitive_id)
+        except DesignSystemError:
+            # Unknown or malformed primitive — skip governance; render-time
+            # normalisation will handle or degrade gracefully.
+            continue
+
+        version = definition.version
+
+        if primitive_id not in already_governed:
+            # Enforce lifecycle for primitives not yet governed.  Skipped for
+            # primitives that were already enforced via _resolve_primitive so
+            # that deprecated artifacts produce exactly one warning per run.
+            _enforce_with_audit(
+                registry, "primitive", primitive_id, version,
+                allow_draft=settings.allow_draft_artifacts,
+                governance_warnings=governance_warnings,
+                telemetry=telemetry if telemetry is not None else GovernanceTelemetryCollector(),
+                usage_scope="per_slide",
+                resolution_source="explicit",
+            )
+
+        gov = registry.get_artifact_governance("primitive", primitive_id, version)
+        record_dependency(
+            dependency_chain,
+            "primitive", primitive_id, version,
+            gov.lifecycle_status.value if gov else None,
+            "primitive",
+        )
+
+
+# ---------------------------------------------------------------------------
+# Phase 10D.5 — Runtime governance audit helpers
+#
+# Event scope taxonomy (mirrors telemetry.py docstring):
+#
+#   Runtime events  — emitted here, during pipeline execution:
+#       AUDIT_EVENT_DRAFT_OVERRIDE_USED       (see GovernanceTelemetryCollector)
+#       AUDIT_EVENT_DEPRECATED_ARTIFACT_USED  (see GovernanceTelemetryCollector)
+#
+#   Control-plane events — authoring / governance mutations (Phase 10D.6):
+#       AUDIT_EVENT_VERSION_CREATED / PROMOTED / DEPRECATED / DEFAULT_CHANGED
+#       Emitted by emit_authoring_event() — NOT by _enforce_with_audit.
+# ---------------------------------------------------------------------------
+
+
+def _enforce_with_audit(
+    registry: Any,
+    artifact_type: str,
+    artifact_id: str,
+    version: str,
+    *,
+    allow_draft: bool,
+    governance_warnings: list[str],
+    telemetry: GovernanceTelemetryCollector,
+    usage_scope: str = "dependency",
+    resolution_source: str = "explicit",
+) -> None:
+    """Call enforce_artifact_lifecycle, record a telemetry event, and capture usage.
+
+    Wraps :meth:`~pptgen.design_system.DesignSystemRegistry.enforce_artifact_lifecycle`
+    without changing its behaviour.  After each call:
+
+    1. Looks up governance once (used for all subsequent decisions).
+    2. Detects the event type (DEPRECATED / DRAFT-override / APPROVED) and
+       delegates to the appropriate collector method.
+    3. Always calls :meth:`~GovernanceTelemetryCollector.record_artifact_usage`
+       with the full governance context captured during this resolution.
+
+    All audit events are recorded with ``run_id=None``; the caller is responsible
+    for backfilling ``run_id`` using :func:`_backfill_run_id` before writing.
+
+    Args:
+        registry:            Loaded :class:`~pptgen.design_system.DesignSystemRegistry`.
+        artifact_type:       Canonical artifact type string.
+        artifact_id:         Stable artifact identifier.
+        version:             Resolved artifact version string.
+        allow_draft:         Matches the current ``allow_draft_artifacts`` setting.
+        governance_warnings: Mutable warning list threaded through the pipeline.
+        telemetry:           Run-scoped :class:`GovernanceTelemetryCollector`.
+        usage_scope:         ``"top_level"``, ``"dependency"``, or ``"per_slide"``.
+        resolution_source:   ``"explicit"`` or ``"default"``.
+
+    Raises:
+        GovernanceViolationError: Propagated from the underlying enforcement call
+            when *allow_draft* is ``False`` and the artifact is DRAFT.
+    """
+    warnings_before = len(governance_warnings)
+    registry.enforce_artifact_lifecycle(
+        artifact_type, artifact_id, version,
+        allow_draft=allow_draft,
+        warnings=governance_warnings,
+    )
+    # Fetch governance once; reused for event type detection and usage capture.
+    gov = registry.get_artifact_governance(artifact_type, artifact_id, version)
+    lifecycle_state = gov.lifecycle_status.value if gov else None
+
+    warning_emitted = len(governance_warnings) > warnings_before
+    is_draft_override = False
+
+    if warning_emitted:
+        reason = gov.deprecation_reason if gov else None
+        telemetry.record_deprecated_usage(artifact_type, artifact_id, version, reason)
+    elif allow_draft and gov and lifecycle_state == "draft":
+        is_draft_override = True
+        telemetry.record_draft_override(artifact_type, artifact_id, version)
+
+    # Always record usage for this artifact resolution.
+    telemetry.record_artifact_usage(
+        artifact_type=artifact_type,
+        artifact_family=artifact_id,
+        artifact_version=version,
+        lifecycle_state=lifecycle_state,
+        resolution_source=resolution_source,
+        usage_scope=usage_scope,
+        warning_emitted=warning_emitted,
+        is_draft_override_usage=is_draft_override,
+    )
+
+
+def _backfill_run_id(
+    events: list[GovernanceAuditEvent],
+    run_id: str,
+) -> list[GovernanceAuditEvent]:
+    """Return new event instances with *run_id* set.
+
+    :class:`~pptgen.analytics.GovernanceAuditEvent` is frozen, so ``run_id``
+    cannot be set in-place.  :func:`dataclasses.replace` constructs a new
+    instance for each event with ``run_id`` overridden.
+
+    Args:
+        events: Events collected with ``run_id=None`` during resolution.
+        run_id: UUID of the current pipeline run.
+
+    Returns:
+        New list of events with ``run_id`` populated.  The original list is
+        not modified.
+    """
+    return [_dc_replace(e, run_id=run_id) for e in events]
+
+
+# ---------------------------------------------------------------------------
+# Phase 10D.4/10D.5 — Telemetry output write (non-blocking)
+# ---------------------------------------------------------------------------
+
+
+def _write_telemetry_outputs_nonblocking(result: PipelineResult, settings: Any) -> None:
+    """Write all telemetry outputs for *result* to the configured analytics dir.
+
+    Writes are grouped by concern:
+
+    - Audit events     → ``audit_events.jsonl``  (governance runtime events)
+    - Run record       → ``run_records.jsonl``   (per-run summary)
+    - Usage events     → ``usage_events.jsonl``  (per-artifact usage ledger)
+    - Aggregates       → ``usage_aggregates.json`` (mutable aggregate cache)
+    - Usage snapshot   → ``governance/usage_runs/<run_id>/artifact_usage_snapshot.json``
+
+    No-op when :attr:`~pptgen.config.RuntimeSettings.analytics_dir` is
+    empty (analytics disabled).  Each writer call is independently
+    non-blocking — an error in one does not prevent the others from running.
+
+    Args:
+        result:   The completed :class:`PipelineResult`.
+        settings: :class:`~pptgen.config.RuntimeSettings` providing
+                  ``analytics_dir_path``.
+    """
+    analytics_dir = settings.analytics_dir_path
+    if analytics_dir is None:
+        return
+    if result.run_record is not None:
+        write_run_record(result.run_record, analytics_dir)
+        # Phase 10D.5 — rebuild daily aggregates from persisted run snapshots.
+        # Called AFTER write_usage_snapshot so the new snapshot is included.
+        _run_date = result.run_record.timestamp_utc.date()
+    else:
+        _run_date = None
+    write_usage_events(result.usage_events, analytics_dir)
+    update_aggregates(result.usage_events, analytics_dir)
+    write_audit_events(result.audit_events, analytics_dir)
+    write_usage_snapshot(result.usage_records, analytics_dir, result.run_id)
+    if _run_date is not None:
+        update_daily_aggregates(analytics_dir, _run_date)
+
+
+def _write_failure_telemetry_nonblocking(
+    telemetry: GovernanceTelemetryCollector,
+    settings: Any,
+    run_id: str,
+    run_date: date | None = None,
+) -> None:
+    """Write failure-path telemetry (usage snapshot + failure attribution + aggregates).
+
+    Called from each resolution-stage except block after
+    :meth:`~GovernanceTelemetryCollector.finalize_usage` has run.
+    Non-blocking — errors are swallowed by the underlying writer functions.
+
+    No-op when analytics is disabled.
+
+    Args:
+        telemetry: Finalized collector for the failed run.
+        settings:  :class:`~pptgen.config.RuntimeSettings`.
+        run_id:    UUID of the failed run.
+        run_date:  UTC date when the run started; used to rebuild daily aggregates.
+    """
+    analytics_dir = settings.analytics_dir_path
+    if analytics_dir is None:
+        return
+    write_usage_snapshot(telemetry.get_usage_records(), analytics_dir, run_id)
+    attribution = telemetry.get_failure_attribution(run_id=run_id, run_failed=True)
+    write_failure_attribution(attribution, analytics_dir, run_id)
+    if run_date is not None:
+        update_daily_aggregates(analytics_dir, run_date)
+
+
+# ---------------------------------------------------------------------------
+# Phase 10D.3 — Usage event builder
+# ---------------------------------------------------------------------------
+
+
+def _build_usage_events(
+    dependency_chain: list[ResolvedArtifactDependency],
+    run_id: str,
+    run_succeeded: bool,
+    settings: Any,
+) -> list[ArtifactUsageEvent]:
+    """Derive one :class:`~pptgen.analytics.ArtifactUsageEvent` per dependency.
+
+    For each :class:`~pptgen.design_system.dependency_models.ResolvedArtifactDependency`
+    in *dependency_chain*, looks up the artifact family to determine whether the
+    resolved version was the designated default at the time of the run.
+
+    The design system registry is instantiated once per call and only when
+    *dependency_chain* is non-empty — it is never loaded for plain runs that
+    use no governed artifacts.
+
+    ``was_default`` is ``True`` only when the dependency carries a non-``None``
+    version **and** that version matches the family's ``default_version`` pointer.
+    Any exception from the family lookup (e.g. unrecognised artifact type) is
+    silently suppressed — ``was_default`` falls back to ``False`` so that
+    analytics capture never blocks a pipeline return.
+
+    Args:
+        dependency_chain: Resolved artifacts from the current run.
+        run_id:           UUID of the current run.
+        run_succeeded:    ``True`` when the run completed without exception.
+        settings:         :class:`~pptgen.config.RuntimeSettings` providing
+                          ``design_system_root``.
+
+    Returns:
+        List of :class:`~pptgen.analytics.ArtifactUsageEvent` in the same
+        order as *dependency_chain*.  Empty when *dependency_chain* is empty.
+    """
+    if not dependency_chain:
+        return []
+
+    registry = DesignSystemRegistry(settings.design_system_root)
+    events: list[ArtifactUsageEvent] = []
+
+    for dep in dependency_chain:
+        was_default = False
+        if dep.version is not None:
+            try:
+                family = registry.get_artifact_family(dep.artifact_type, dep.artifact_id)
+                was_default = (
+                    family is not None and family.default_version == dep.version
+                )
+            except Exception:
+                was_default = False  # never block analytics capture
+
+        events.append(ArtifactUsageEvent(
+            run_id=run_id,
+            artifact_type=dep.artifact_type,
+            artifact_id=dep.artifact_id,
+            version=dep.version,
+            lifecycle_status=dep.lifecycle_status,
+            was_default=was_default,
+            run_succeeded=run_succeeded,
+        ))
+
+    return events
 
 
 # ---------------------------------------------------------------------------

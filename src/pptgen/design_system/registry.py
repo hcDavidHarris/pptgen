@@ -32,6 +32,7 @@ import yaml
 from .asset_models import VALID_ASSET_TYPES, AssetDefinition
 from .exceptions import (
     DesignSystemSchemaError,
+    GovernanceViolationError,
     InvalidAssetDefinitionError,
     InvalidAssetTypeError,
     InvalidLayoutDefinitionError,
@@ -676,6 +677,62 @@ class DesignSystemRegistry:
         if family is not None:
             return family.default_version
         return None
+
+    def enforce_artifact_lifecycle(
+        self,
+        artifact_type: str,
+        artifact_id: str,
+        version: str,
+        *,
+        allow_draft: bool = False,
+        warnings: list[str] | None = None,
+    ) -> None:
+        """Enforce lifecycle policy for a resolved artifact version.
+
+        - ``APPROVED`` — no action.
+        - ``DRAFT``    — raises :class:`~.exceptions.GovernanceViolationError`
+          when *allow_draft* is ``False``.
+        - ``DEPRECATED`` — appends a human-readable warning to *warnings*
+          (never raises).
+
+        When *version* is not found in the governance index (e.g. the artifact
+        YAML has no ``governance:`` block) the method is a no-op — enforcement
+        is best-effort and requires explicit governance metadata.
+
+        Args:
+            artifact_type: Canonical artifact type (``"primitive"``, etc.).
+            artifact_id:   Stable artifact identifier.
+            version:       Artifact version string (e.g. ``"1.0.0"``).
+            allow_draft:   When ``True``, DRAFT artifacts are permitted.
+            warnings:      Mutable list to which deprecation warnings are
+                           appended.  Pass ``None`` to silently discard them.
+
+        Raises:
+            GovernanceViolationError: If the artifact is DRAFT and
+                *allow_draft* is ``False``.
+        """
+        self._ensure_gov_loaded(artifact_type, artifact_id)
+        gov = self._gov_versions.get((artifact_type, artifact_id, version))
+        if gov is None:
+            return  # No governance metadata — enforcement is a no-op.
+
+        if gov.lifecycle_status == LifecycleStatus.DRAFT and not allow_draft:
+            raise GovernanceViolationError(
+                f"{artifact_type.capitalize()} '{artifact_id}' version '{version}' "
+                f"is in DRAFT status and cannot be used in production pipelines. "
+                f"Set allow_draft_artifacts=True to permit draft artifacts."
+            )
+
+        if gov.lifecycle_status == LifecycleStatus.DEPRECATED:
+            reason = (
+                f" Reason: {gov.deprecation_reason}" if gov.deprecation_reason else ""
+            )
+            msg = (
+                f"{artifact_type.capitalize()} '{artifact_id}' version '{version}' "
+                f"is DEPRECATED and will be removed in a future release.{reason}"
+            )
+            if warnings is not None:
+                warnings.append(msg)
 
     # ------------------------------------------------------------------
     # Internal helpers

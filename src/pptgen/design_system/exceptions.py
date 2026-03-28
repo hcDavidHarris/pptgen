@@ -105,3 +105,17 @@ class InvalidAssetTypeError(DesignSystemError):
 
 class InvalidAssetDefinitionError(DesignSystemError):
     """An asset YAML file is structurally invalid or fails schema validation."""
+
+
+# ---------------------------------------------------------------------------
+# Phase 10B — Governance enforcement exceptions
+# ---------------------------------------------------------------------------
+
+
+class GovernanceViolationError(DesignSystemError):
+    """An artifact in a non-permitted lifecycle state was used in the pipeline.
+
+    Raised when a DRAFT artifact is encountered and ``allow_draft_artifacts``
+    is ``False`` (the default).  Deprecated artifacts never raise; they emit a
+    governance warning instead.
+    """

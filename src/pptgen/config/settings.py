@@ -184,7 +184,7 @@ class RuntimeSettings:
     log_json_format: bool = False
 
     # ------------------------------------------------------------------
-    # Design System (Phase 9 Stage 1)
+    # Design System (Phase 9 Stage 1 / Phase 10B)
     # ------------------------------------------------------------------
     #: Path to the design_system/ directory.  Empty string = use the
     #: ``design_system/`` directory adjacent to the project source root.
@@ -192,6 +192,19 @@ class RuntimeSettings:
     #: Platform-level default theme ID.  Applied when no theme is
     #: specified at run-time or in the template.  Empty string = no theme.
     default_theme: str = ""
+    #: When True, DRAFT-status artifacts are allowed through the pipeline
+    #: without raising GovernanceViolationError.  Defaults to False so that
+    #: unreviewed artifacts cannot reach production.
+    allow_draft_artifacts: bool = False
+
+    # ------------------------------------------------------------------
+    # Governance Analytics (Phase 10D)
+    # ------------------------------------------------------------------
+    #: Directory for append-only analytics files (run_records.jsonl,
+    #: usage_events.jsonl, usage_aggregates.json).
+    #: Empty string = analytics disabled (no files written).
+    #: Set PPTGEN_ANALYTICS_DIR to enable, e.g. ~/.pptgen/analytics.
+    analytics_dir: str = ""
 
     # ------------------------------------------------------------------
     # Computed properties
@@ -227,6 +240,15 @@ class RuntimeSettings:
         """
         base = self.workspace_base or str(Path(tempfile.gettempdir()) / "pptgen_api")
         return Path(base)
+
+    @property
+    def analytics_dir_path(self) -> Path | None:
+        """Absolute path to the analytics output directory, or ``None``.
+
+        ``None`` when :attr:`analytics_dir` is empty, which disables all
+        analytics writes.  Set ``PPTGEN_ANALYTICS_DIR`` to enable.
+        """
+        return Path(self.analytics_dir) if self.analytics_dir else None
 
     @property
     def design_system_root(self) -> Path:
@@ -334,6 +356,8 @@ class RuntimeSettings:
             log_json_format=os.environ.get("PPTGEN_LOG_JSON_FORMAT", "").lower() in ("1", "true", "yes"),
             design_system_path=os.environ.get("PPTGEN_DESIGN_SYSTEM_PATH", ""),
             default_theme=os.environ.get("PPTGEN_DEFAULT_THEME", ""),
+            allow_draft_artifacts=_bool("PPTGEN_ALLOW_DRAFT_ARTIFACTS", False),
+            analytics_dir=os.environ.get("PPTGEN_ANALYTICS_DIR", ""),
         )
 
 
