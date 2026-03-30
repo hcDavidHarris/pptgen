@@ -42,7 +42,8 @@ def validate_startup(settings) -> list[str]:
 
     1. Template registry file exists and is readable.
     2. Workspace base directory is writable.
-    3. AI mode with a non-mock provider requires ``PPTGEN_MODEL_API_KEY``.
+    3. Provider-aware credential check: ``anthropic`` requires ``PPTGEN_MODEL_API_KEY``;
+       ``ollama`` does not; unknown providers are rejected.
     4. ``max_input_bytes`` is a positive integer.
 
     Args:
@@ -69,12 +70,24 @@ def validate_startup(settings) -> list[str]:
             f"Workspace base not writable: {settings.workspace_base_path}"
         )
 
-    # 3. AI mode + non-mock provider requires an API key
-    if settings.enable_ai_mode and settings.model_provider != "mock":
-        if not settings.model_api_key:
+    # 3. Provider-aware credential check.
+    #    Each provider has its own requirements — do not apply a blanket rule.
+    _provider = settings.model_provider
+    if settings.enable_ai_mode:
+        if _provider == "anthropic":
+            if not settings.model_api_key:
+                failures.append(
+                    f"PPTGEN_MODEL_API_KEY required when "
+                    f"model_provider='{_provider}'"
+                )
+        elif _provider == "ollama":
+            pass  # Ollama uses local HTTP — no API key required
+        elif _provider in ("", "mock"):
+            pass  # Default/mock mode — no credentials needed
+        else:
             failures.append(
-                f"PPTGEN_MODEL_API_KEY required when "
-                f"model_provider='{settings.model_provider}'"
+                f"Unknown model_provider '{_provider}'. "
+                f"Valid values: 'mock', 'anthropic', 'ollama'."
             )
 
     # 4. Input size limit must be positive

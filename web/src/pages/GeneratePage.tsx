@@ -7,13 +7,20 @@ import { ResultPanel } from '../components/ResultPanel'
 import { StatusBanner } from '../components/StatusBanner'
 
 type ResultMode = 'preview' | 'generate'
+export type InputMode = 'text' | 'content-intelligence'
 
 export function GeneratePage() {
   // ── form state ──────────────────────────────────────────────────────────
+  const [inputMode, setInputMode] = useState<InputMode>('text')
   const [text, setText] = useState('')
   const [mode, setMode] = useState<ExecutionMode>('deterministic')
   const [templateId, setTemplateId] = useState('')
   const [artifacts, setArtifacts] = useState(false)
+
+  // ── CI state ─────────────────────────────────────────────────────────────
+  const [ciTopic, setCiTopic] = useState('')
+  const [ciGoal, setCiGoal] = useState('')
+  const [ciAudience, setCiAudience] = useState('')
 
   // ── async state ──────────────────────────────────────────────────────────
   const [templates, setTemplates] = useState<string[]>([])
@@ -35,6 +42,32 @@ export function GeneratePage() {
       })
   }, [])
 
+  // ── helpers ───────────────────────────────────────────────────────────────
+  function buildRequest(previewOnly: boolean, includeArtifacts: boolean) {
+    const isCiMode = inputMode === 'content-intelligence'
+    const ciPayload =
+      isCiMode && ciTopic.trim()
+        ? {
+            topic: ciTopic.trim(),
+            goal: ciGoal.trim() || undefined,
+            audience: ciAudience.trim() || undefined,
+          }
+        : undefined
+
+    return {
+      // In CI mode `text` has no pipeline meaning — deck generation is driven
+      // entirely by content_intent.topic.  Sending an empty string ensures the
+      // raw-text pipeline input cannot accidentally drive deck generation if
+      // content_intent is somehow absent from the request.
+      text: isCiMode ? '' : text,
+      mode,
+      template_id: templateId || undefined,
+      artifacts: includeArtifacts,
+      preview_only: previewOnly,
+      content_intent: ciPayload,
+    }
+  }
+
   // ── handlers ─────────────────────────────────────────────────────────────
   async function handlePreview() {
     setError(null)
@@ -42,13 +75,7 @@ export function GeneratePage() {
     setLoading(true)
     setLoadingMessage('Planning deck…')
     try {
-      const res = await generate({
-        text,
-        mode,
-        template_id: templateId || undefined,
-        artifacts: false,   // artifacts only meaningful for full generation
-        preview_only: true,
-      })
+      const res = await generate(buildRequest(true, false))
       setResult(res)
       setResultMode('preview')
     } catch (err) {
@@ -64,13 +91,7 @@ export function GeneratePage() {
     setLoading(true)
     setLoadingMessage('Generating presentation…')
     try {
-      const res = await generate({
-        text,
-        mode,
-        template_id: templateId || undefined,
-        artifacts,
-        preview_only: false,
-      })
+      const res = await generate(buildRequest(false, artifacts))
       setResult(res)
       setResultMode('generate')
     } catch (err) {
@@ -84,8 +105,16 @@ export function GeneratePage() {
   return (
     <main className="app-main">
       <GenerateForm
+        inputMode={inputMode}
+        onInputModeChange={setInputMode}
         text={text}
         onTextChange={setText}
+        ciTopic={ciTopic}
+        onCiTopicChange={setCiTopic}
+        ciGoal={ciGoal}
+        onCiGoalChange={setCiGoal}
+        ciAudience={ciAudience}
+        onCiAudienceChange={setCiAudience}
         mode={mode}
         onModeChange={setMode}
         templateId={templateId}

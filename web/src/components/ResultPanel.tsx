@@ -41,7 +41,14 @@ export function ResultPanel({ result, mode }: Props) {
         </dd>
 
         <dt>playbook</dt>
-        <dd>{result.playbook_id}</dd>
+        <dd>
+          {result.playbook_id}
+          {result.content_intent_mode && (
+            <span className="ci-badge" title="Deck built via content-intelligence path">
+              {' '}CI
+            </span>
+          )}
+        </dd>
 
         <dt>mode</dt>
         <dd>{result.mode}</dd>

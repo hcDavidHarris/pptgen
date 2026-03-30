@@ -23,6 +23,7 @@ PPTGEN_ENABLE_ARTIFACT_EXPORT  Enable artifact export    true
 PPTGEN_MODEL_PROVIDER  LLM provider (mock/anthropic/…)   mock
 PPTGEN_MODEL_NAME      Provider-specific model name       (provider default)
 PPTGEN_MODEL_API_KEY   API key — never hardcode           (empty)
+PPTGEN_OLLAMA_TIMEOUT  Ollama HTTP request timeout (s)    120
 PPTGEN_API_HOST        uvicorn bind host                  0.0.0.0
 PPTGEN_API_PORT        uvicorn bind port                  8000
 PPTGEN_CORS_ORIGINS    Comma-separated CORS origins       localhost:5173,5174
@@ -137,6 +138,19 @@ class RuntimeSettings:
     model_name: str = ""
     #: API key — injected from PPTGEN_MODEL_API_KEY.  Never hardcode.
     model_api_key: str = ""
+
+    # ------------------------------------------------------------------
+    # Ollama provider settings (model_provider = "ollama")
+    # ------------------------------------------------------------------
+    #: Ollama model tag to use.  Override via PPTGEN_OLLAMA_MODEL.
+    ollama_model: str = "qwen3:latest"
+    #: Base URL of the running Ollama instance.
+    #: Override via PPTGEN_OLLAMA_BASE_URL (e.g. http://remote-host:11434).
+    ollama_base_url: str = "http://localhost:11434"
+    #: HTTP request timeout for Ollama calls in seconds.
+    #: Local model inference can be slow; 120 s is a safe default.
+    #: Override via PPTGEN_OLLAMA_TIMEOUT.
+    ollama_timeout_seconds: int = 120
 
     # ------------------------------------------------------------------
     # API server
@@ -325,6 +339,9 @@ class RuntimeSettings:
             model_provider=os.environ.get("PPTGEN_MODEL_PROVIDER", "mock"),
             model_name=os.environ.get("PPTGEN_MODEL_NAME", ""),
             model_api_key=os.environ.get("PPTGEN_MODEL_API_KEY", ""),
+            ollama_model=os.environ.get("PPTGEN_OLLAMA_MODEL", "qwen3:latest"),
+            ollama_base_url=os.environ.get("PPTGEN_OLLAMA_BASE_URL", "http://localhost:11434"),
+            ollama_timeout_seconds=_int("PPTGEN_OLLAMA_TIMEOUT", "ollama_timeout_seconds", 120),
             api_host=os.environ.get("PPTGEN_API_HOST", "0.0.0.0"),
             api_port=_int("PPTGEN_API_PORT", "api_port", 8000),
             api_cors_origins=cors_origins,

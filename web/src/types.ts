@@ -197,12 +197,20 @@ export interface JobCancelResponse {
 
 export type ExecutionMode = 'deterministic' | 'ai'
 
+export interface ContentIntentPayload {
+  topic: string
+  goal?: string
+  audience?: string
+  context?: Record<string, unknown>
+}
+
 export interface GenerateRequest {
   text: string
   mode: ExecutionMode
   template_id?: string
   artifacts?: boolean
   preview_only?: boolean
+  content_intent?: ContentIntentPayload
 }
 
 export interface GenerateResponse {
@@ -217,6 +225,7 @@ export interface GenerateResponse {
   output_path: string | null
   artifact_paths: Record<string, string> | null
   notes: string | null
+  content_intent_mode?: boolean
 }
 
 export interface HealthResponse {

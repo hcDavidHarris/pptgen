@@ -89,6 +89,12 @@ from ..render import render_deck
 from ..runtime.run_context import RunContext
 from ..spec.presentation_spec import PresentationSpec
 from ..spec.spec_to_deck import convert_spec_to_deck
+from ..content_intelligence import (
+    ContentIntent,
+    EnrichedSlideContent,
+    normalize_for_pipeline,
+    run_content_intelligence,
+)
 
 
 _REGISTRY_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "registry.yaml"
@@ -163,6 +169,10 @@ class PipelineResult:
     #: Finalised (run_id backfilled, success/failure flag set) before return.
     #: Empty when no governed artifacts were resolved.
     usage_records: list[ArtifactUsageRecord] = field(default_factory=list)
+    #: Phase 11A — enriched content produced by the content intelligence layer.
+    #: Populated when a ContentIntent is supplied to generate_presentation().
+    #: None when the CI layer is not invoked (default — non-breaking).
+    enriched_content: list[EnrichedSlideContent] | None = field(default=None)
 
 
 def generate_presentation(
@@ -173,6 +183,7 @@ def generate_presentation(
     artifacts_dir: Path | None = None,
     run_context: RunContext | None = None,
     theme_id: str | None = None,
+    content_intent: ContentIntent | None = None,
 ) -> PipelineResult:
     """Entry point for the presentation generation pipeline.
 
@@ -252,6 +263,10 @@ def generate_presentation(
     # Narrative text never produces this shape when YAML-parsed.
     _structured = _try_parse_deck_definition(normalised)
 
+    # Content intelligence enriched output — populated by the CI branch only.
+    # None on the structured-bypass and legacy paths.
+    _enriched_content: list[EnrichedSlideContent] | None = None
+
     if _structured is not None:
         _validate_structured_deck_shape(_structured)
         deck_definition: dict[str, Any] = _structured
@@ -270,6 +285,37 @@ def generate_presentation(
         )
         if run_context:
             run_context.playbook_id = playbook_id
+        # When a ContentIntent is also provided alongside a structured deck,
+        # run CI for enrichment and observability.  The structured deck still
+        # drives the rendered slides; CI output is carried in enriched_content.
+        if content_intent is not None:
+            if run_context:
+                run_context.start_stage("content_intelligence")
+            _enriched_content = run_content_intelligence(content_intent)
+            if run_context:
+                run_context.end_stage("content_intelligence")
+
+    elif content_intent is not None:
+        # Content Intelligence path (Phase 11C).
+        # When a ContentIntent is supplied, the CI layer owns deck building.
+        # The legacy playbook / planning / spec-to-deck path is bypassed entirely
+        # to prevent raw input-text (which may be a stringified ContentIntent)
+        # from reaching slide content via the rule-based extractors.
+        playbook_id = "content-intelligence"
+        spec = None
+        slide_plan = None
+        exec_notes = ""
+        resolved_template = template_id or "ops_review_v1"
+        if run_context:
+            run_context.playbook_id = playbook_id
+            run_context.start_stage("content_intelligence")
+        _enriched_content = run_content_intelligence(content_intent)
+        if run_context:
+            run_context.end_stage("content_intelligence")
+        deck_definition = _build_deck_from_enriched_content(
+            content_intent, _enriched_content, resolved_template
+        )
+
     else:
         if run_context:
             run_context.start_stage("route_input")
@@ -510,6 +556,31 @@ def generate_presentation(
                     deck_definition,
                 )
                 artifact_paths = {k: str(v) for k, v in raw_paths.items()}
+            elif content_intent is not None and _enriched_content is not None:
+                # CI path — emit spec.json, slide_plan.json, deck_definition.json
+                artifacts_dir_path.mkdir(parents=True, exist_ok=True)
+                ci_spec = _build_ci_spec(content_intent, _enriched_content)
+                ci_plan = _build_ci_slide_plan(_enriched_content, playbook_id)
+                spec_path = artifacts_dir_path / "spec.json"
+                plan_path = artifacts_dir_path / "slide_plan.json"
+                deck_path = artifacts_dir_path / "deck_definition.json"
+                spec_path.write_text(
+                    json.dumps(ci_spec, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                plan_path.write_text(
+                    json.dumps(ci_plan, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                deck_path.write_text(
+                    json.dumps(deck_definition, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                artifact_paths = {
+                    "spec": str(spec_path),
+                    "slide_plan": str(plan_path),
+                    "deck_definition": str(deck_path),
+                }
             else:
                 # Direct deck input: no spec or plan — write only the
                 # resolved deck definition.
@@ -625,6 +696,7 @@ def generate_presentation(
             usage_events=_usage_events,
             audit_events=_backfilled_audit,
             usage_records=_telemetry.get_usage_records(),
+            enriched_content=_enriched_content,
         )
         _write_telemetry_outputs_nonblocking(_result, settings)
         return _result
@@ -671,9 +743,167 @@ def generate_presentation(
         usage_events=_usage_events,
         audit_events=_backfilled_audit,
         usage_records=_telemetry.get_usage_records(),
+        enriched_content=_enriched_content,
     )
     _write_telemetry_outputs_nonblocking(_result, settings)
     return _result
+
+
+# ---------------------------------------------------------------------------
+# Content Intelligence deck builder (Phase 11C)
+# ---------------------------------------------------------------------------
+
+def _build_deck_from_enriched_content(
+    content_intent: ContentIntent,
+    enriched_slides: list[EnrichedSlideContent],
+    resolved_template: str = "ops_review_v1",
+) -> dict[str, Any]:
+    """Build a deck definition from content intelligence output.
+
+    Converts ``list[EnrichedSlideContent]`` into the deck-definition dict
+    expected by the governance / resolution / render stages.
+
+    Design guarantees:
+    - Raw ``ContentIntent`` fields are never serialized into slide text.
+      Only structured enriched-content fields (title, assertion,
+      supporting_points, implications) reach the deck definition.
+    - Each ``EnrichedSlideContent`` becomes a ``bullets``-type slide so
+      the existing renderer can handle it without changes.
+    - The CI metadata (_ci_metadata) is carried for observability in the
+      stored deck_definition, but is stripped by _render() before parse_deck()
+      because BulletsSlide uses extra='forbid'.
+
+    Args:
+        content_intent:    The original authoring intent (topic, goal, audience).
+        enriched_slides:   Fully-enriched slide content from the CI pipeline.
+        resolved_template: Template ID to embed in deck.template (required by
+                           DeckMetadata; default is the platform fallback).
+
+    Returns:
+        A deck-definition dict compatible with the existing pipeline.
+    """
+    topic = content_intent.topic
+    # TitleSlide.subtitle is a required non-empty str; fall back to topic.
+    subtitle = content_intent.goal or topic
+
+    slides: list[dict[str, Any]] = []
+
+    # Title slide — topic is the title; goal (if any) is the subtitle.
+    # Neither field contains raw ContentIntent serialization.
+    slides.append({
+        "type": "title",
+        "title": topic,
+        "subtitle": subtitle,
+    })
+
+    # One content slide per EnrichedSlideContent.
+    for enriched in enriched_slides:
+        normalized = normalize_for_pipeline(enriched)
+        slide: dict[str, Any] = {
+            "type": "bullets",
+            "title": normalized["title"],
+            "bullets": normalized["bullets"],
+            # _ci_metadata is internal-only for observability.
+            # Stripped by _render() before parse_deck() (extra='forbid').
+            "_ci_metadata": normalized["_ci_metadata"],
+        }
+        if normalized["notes"]:
+            slide["notes"] = normalized["notes"]
+        slides.append(slide)
+
+    return {
+        "deck": {
+            "title": topic,
+            "template": resolved_template,
+            "author": "pptgen",
+        },
+        "slides": slides,
+    }
+
+
+# ---------------------------------------------------------------------------
+# CI artifact serializers (Phase 11D)
+# ---------------------------------------------------------------------------
+
+def _build_ci_spec(
+    content_intent: ContentIntent,
+    enriched_slides: list[EnrichedSlideContent],
+) -> dict[str, Any]:
+    """Build a CI-native spec dict from a ContentIntent and enriched slides.
+
+    This is the CI equivalent of ``PresentationSpec`` — a structured record of
+    what the content intelligence layer produced, suitable for storing as
+    ``spec.json`` in the artifact directory.
+
+    Args:
+        content_intent:  The original authoring intent.
+        enriched_slides: Fully-enriched slide content from the CI pipeline.
+
+    Returns:
+        Serializable dict with ``source_mode``, intent fields, and per-slide
+        structured content.
+    """
+    slides = []
+    for i, slide in enumerate(enriched_slides):
+        slides.append({
+            "index": i,
+            "title": slide.title,
+            "assertion": slide.assertion or "",
+            "supporting_points": list(slide.supporting_points),
+            "implications": list(slide.implications or []),
+            "intent_type": slide.metadata.get("intent_type", ""),
+            "primitive": slide.primitive or "",
+        })
+    return {
+        "source_mode": "content_intelligence",
+        "topic": content_intent.topic,
+        "goal": content_intent.goal or "",
+        "audience": content_intent.audience or "",
+        "slide_count": len(enriched_slides),
+        "slides": slides,
+    }
+
+
+def _build_ci_slide_plan(
+    enriched_slides: list[EnrichedSlideContent],
+    playbook_id: str = "content-intelligence",
+) -> dict[str, Any]:
+    """Build a CI-native slide plan dict from enriched slides.
+
+    This is the CI equivalent of ``SlidePlan`` — a per-slide record of intent,
+    primitive, prompt backend, and fallback state.  Stored as ``slide_plan.json``
+    in the artifact directory.
+
+    The first slide in the deck is always the title slide; remaining slides are
+    bullets slides.  ``slide_type`` reflects this assignment.
+
+    Args:
+        enriched_slides: Fully-enriched slide content from the CI pipeline.
+        playbook_id:     Playbook identifier to embed in the plan.
+
+    Returns:
+        Serializable dict with deck-level metadata and per-slide plan entries.
+    """
+    slide_entries = []
+    for i, slide in enumerate(enriched_slides):
+        diag: dict = slide.metadata.get("_prompt_diag", {})
+        slide_entries.append({
+            "index": i,
+            "title": slide.title,
+            "intent_type": slide.metadata.get("intent_type", ""),
+            "primitive": slide.primitive or "",
+            "slide_type": "title" if i == 0 else "bullets",
+            "insights_applied": bool(slide.metadata.get("insights_applied", False)),
+            "prompt_backend": diag.get("backend", ""),
+            "fallback_used": bool(diag.get("fallback_used", False)),
+            "fallback_reason": diag.get("fallback_reason", ""),
+        })
+    return {
+        "playbook_id": playbook_id,
+        "mode": "content_intelligence",
+        "slide_count": len(enriched_slides),
+        "slides": slide_entries,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1477,6 +1707,32 @@ def _normalize_primitive_slides(deck_definition: dict[str, Any]) -> dict[str, An
 # Internal rendering helper
 # ---------------------------------------------------------------------------
 
+_CI_INTERNAL_SLIDE_KEYS = frozenset({"_ci_metadata"})
+
+
+def _strip_ci_slide_internals(deck_definition: dict[str, Any]) -> dict[str, Any]:
+    """Remove CI-internal keys from slide dicts before rendering.
+
+    ``_ci_metadata`` is carried in the stored deck_definition for
+    observability but is rejected by ``BulletsSlide`` (``extra='forbid'``).
+    This helper strips those keys so ``parse_deck()`` succeeds.
+    """
+    slides = deck_definition.get("slides")
+    if not isinstance(slides, list):
+        return deck_definition
+    if not any(
+        isinstance(s, dict) and _CI_INTERNAL_SLIDE_KEYS.intersection(s)
+        for s in slides
+    ):
+        return deck_definition  # fast path — no CI slides present
+    cleaned = [
+        {k: v for k, v in s.items() if k not in _CI_INTERNAL_SLIDE_KEYS}
+        if isinstance(s, dict) else s
+        for s in slides
+    ]
+    return {**deck_definition, "slides": cleaned}
+
+
 def _render(
     deck_definition: dict[str, Any],
     spec_template: str,
@@ -1484,7 +1740,8 @@ def _render(
 ) -> None:
     """Load *deck_definition*, resolve template, and write a .pptx."""
     try:
-        normalized = _normalize_primitive_slides(deck_definition)
+        stripped = _strip_ci_slide_internals(deck_definition)
+        normalized = _normalize_primitive_slides(stripped)
         deck = parse_deck(normalized)
         registry = TemplateRegistry.from_file(_REGISTRY_PATH)
         entry = registry.get(spec_template)

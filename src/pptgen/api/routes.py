@@ -62,6 +62,7 @@ def generate(request: GenerateRequest) -> GenerateResponse:
             artifacts=request.artifacts,
             preview_only=request.preview_only,
             request_id=request_id,
+            content_intent=request.content_intent,
         )
     except APIError as exc:
         raise HTTPException(
@@ -79,6 +80,11 @@ def generate(request: GenerateRequest) -> GenerateResponse:
     if result.slide_plan is not None:
         slide_count = result.slide_plan.slide_count
         slide_types = result.slide_plan.planned_slide_types
+    elif result.deck_definition:
+        # CI path: slide_plan is None; derive counts from the built deck
+        slides = result.deck_definition.get("slides", [])
+        slide_count = len(slides)
+        slide_types = [s.get("type", "") for s in slides]
 
     return GenerateResponse(
         request_id=request_id,
@@ -93,4 +99,5 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         output_path=result.output_path,
         artifact_paths=result.artifact_paths,
         notes=result.notes or None,
+        content_intent_mode=result.playbook_id == "content-intelligence",
     )

@@ -121,6 +121,50 @@ class TestValidateStartupAIProvider:
         failures = validate_startup(settings)
         assert not any("API_KEY" in f for f in failures)
 
+    def test_ollama_provider_without_api_key_passes(self, tmp_path):
+        """Ollama uses local HTTP — no API key should be required."""
+        settings = RuntimeSettings(
+            workspace_base=str(tmp_path),
+            model_provider="ollama",
+            model_api_key="",
+            enable_ai_mode=True,
+        )
+        failures = validate_startup(settings)
+        assert not any("API_KEY" in f or "api_key" in f.lower() for f in failures)
+
+    def test_ollama_provider_does_not_report_unknown_provider(self, tmp_path):
+        """Ollama is a known provider — must not trigger the unknown-provider error."""
+        settings = RuntimeSettings(
+            workspace_base=str(tmp_path),
+            model_provider="ollama",
+            model_api_key="",
+            enable_ai_mode=True,
+        )
+        failures = validate_startup(settings)
+        assert not any("Unknown model_provider" in f for f in failures)
+
+    def test_unknown_provider_is_rejected(self, tmp_path):
+        """An unrecognised provider name must produce a failure."""
+        settings = RuntimeSettings(
+            workspace_base=str(tmp_path),
+            model_provider="openai",
+            model_api_key="",
+            enable_ai_mode=True,
+        )
+        failures = validate_startup(settings)
+        assert any("Unknown model_provider" in f or "openai" in f for f in failures)
+
+    def test_mock_provider_passes_without_key(self, tmp_path):
+        """Explicit 'mock' provider must not be flagged even with ai_mode enabled."""
+        settings = RuntimeSettings(
+            workspace_base=str(tmp_path),
+            model_provider="mock",
+            model_api_key="",
+            enable_ai_mode=True,
+        )
+        failures = validate_startup(settings)
+        assert not any("API_KEY" in f or "Unknown model_provider" in f for f in failures)
+
 
 # ---------------------------------------------------------------------------
 # validate_startup — input size limit checks

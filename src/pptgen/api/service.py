@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 
 from ..config import get_settings
+from ..content_intelligence import ContentIntent
 from ..pipeline import PipelineError, PipelineResult, generate_presentation
 from ..playbook_engine.execution_strategy import VALID_STRATEGIES
 from ..registry.registry import TemplateRegistry
@@ -61,6 +62,48 @@ def list_playbooks() -> list[str]:
     return sorted(e.playbook_id for e in entries)
 
 
+def _parse_content_intent(raw: dict) -> ContentIntent:
+    """Parse a request ``content_intent`` dict into a :class:`ContentIntent`.
+
+    Args:
+        raw: Dict with at minimum a ``"topic"`` key.
+
+    Returns:
+        :class:`ContentIntent` with topic, goal, audience, context populated.
+
+    Raises:
+        APIError: If ``"topic"`` is missing, blank, contains newlines, or
+                  exceeds 500 characters.  A topic must be a single-line
+                  concept (e.g. "Cloud Cost Optimisation") — not a paragraph,
+                  document, or multi-line paste.
+    """
+    topic = raw.get("topic", "")
+    if not isinstance(topic, str) or not topic.strip():
+        raise APIError(
+            "content_intent must include a non-empty 'topic' string.",
+            status_code=400,
+        )
+    topic = topic.strip()
+    if "\n" in topic or "\r" in topic:
+        raise APIError(
+            "content_intent.topic must be a single-line string (no newlines). "
+            "Provide a concise presentation topic, not a multi-line document.",
+            status_code=400,
+        )
+    if len(topic) > 500:
+        raise APIError(
+            f"content_intent.topic must not exceed 500 characters "
+            f"({len(topic)} received).  Provide a concise presentation topic.",
+            status_code=400,
+        )
+    return ContentIntent(
+        topic=topic,
+        goal=raw.get("goal") or None,
+        audience=raw.get("audience") or None,
+        context=raw.get("context") or None,
+    )
+
+
 def run_generate(
     text: str,
     mode: str,
@@ -68,23 +111,26 @@ def run_generate(
     artifacts: bool,
     preview_only: bool,
     request_id: str | None = None,
+    content_intent: dict | None = None,
 ) -> tuple[PipelineResult, RunContext]:
     """Validate inputs, run the generation pipeline, and return run metadata.
 
     Args:
-        text:         Raw input text.
-        mode:         Execution mode string.
-        template_id:  Optional template ID override.
-        artifacts:    Whether to export pipeline artifacts.
-        preview_only: Skip rendering if ``True``.
-        request_id:   HTTP request identifier for the :class:`RunContext`.
+        text:           Raw input text.
+        mode:           Execution mode string.
+        template_id:    Optional template ID override.
+        artifacts:      Whether to export pipeline artifacts.
+        preview_only:   Skip rendering if ``True``.
+        request_id:     HTTP request identifier for the :class:`RunContext`.
+        content_intent: Optional structured content intent dict.  When present
+                        the content-intelligence path drives deck generation.
 
     Returns:
         A tuple of (:class:`~pptgen.pipeline.PipelineResult`,
         :class:`~pptgen.runtime.RunContext`).
 
     Raises:
-        APIError: For invalid *mode* or *template_id*.
+        APIError: For invalid *mode*, *template_id*, or malformed *content_intent*.
         PipelineError: Propagated from the pipeline for other failures.
     """
     if mode not in VALID_STRATEGIES:
@@ -92,6 +138,11 @@ def run_generate(
             f"Unknown mode '{mode}'.  Valid modes: {', '.join(sorted(VALID_STRATEGIES))}.",
             status_code=400,
         )
+
+    # Parse content_intent dict into a typed ContentIntent when provided.
+    parsed_intent: ContentIntent | None = None
+    if content_intent is not None:
+        parsed_intent = _parse_content_intent(content_intent)
 
     settings = get_settings()
     ctx = RunContext(
@@ -123,6 +174,7 @@ def run_generate(
         mode=mode,
         artifacts_dir=artifacts_dir,
         run_context=ctx,
+        content_intent=parsed_intent,
     )
 
     # Promote artifacts to durable store when services are wired in (Stage 6C).

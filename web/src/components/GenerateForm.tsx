@@ -1,8 +1,17 @@
 import type { ExecutionMode } from '../types'
+import type { InputMode } from '../pages/GeneratePage'
 
 interface Props {
+  inputMode: InputMode
+  onInputModeChange: (v: InputMode) => void
   text: string
   onTextChange: (v: string) => void
+  ciTopic: string
+  onCiTopicChange: (v: string) => void
+  ciGoal: string
+  onCiGoalChange: (v: string) => void
+  ciAudience: string
+  onCiAudienceChange: (v: string) => void
   mode: ExecutionMode
   onModeChange: (v: ExecutionMode) => void
   templateId: string
@@ -16,8 +25,16 @@ interface Props {
 }
 
 export function GenerateForm({
+  inputMode,
+  onInputModeChange,
   text,
   onTextChange,
+  ciTopic,
+  onCiTopicChange,
+  ciGoal,
+  onCiGoalChange,
+  ciAudience,
+  onCiAudienceChange,
   mode,
   onModeChange,
   templateId,
@@ -29,24 +46,88 @@ export function GenerateForm({
   onGenerate,
   loading,
 }: Props) {
-  const canSubmit = text.trim().length > 0 && !loading
+  const isCi = inputMode === 'content-intelligence'
+  const canSubmit = (isCi ? ciTopic.trim().length > 0 : text.trim().length > 0) && !loading
 
   return (
     <section className="form-panel">
       <h2>Input</h2>
 
-      <label htmlFor="input-text" className="field-label">
-        Raw input text
-      </label>
-      <textarea
-        id="input-text"
-        className="input-textarea"
-        value={text}
-        onChange={(e) => onTextChange(e.target.value)}
-        placeholder="Paste meeting notes, sprint data, ADO export, etc."
-        rows={10}
-        disabled={loading}
-      />
+      {/* Input mode toggle */}
+      <fieldset className="mode-fieldset">
+        <legend className="field-label">Input mode</legend>
+        {(['text', 'content-intelligence'] as InputMode[]).map((m) => (
+          <label key={m} className="radio-label">
+            <input
+              type="radio"
+              name="input-mode"
+              value={m}
+              checked={inputMode === m}
+              onChange={() => onInputModeChange(m)}
+              disabled={loading}
+            />
+            {m === 'text' ? 'Raw text' : 'Content intelligence'}
+          </label>
+        ))}
+      </fieldset>
+
+      {isCi ? (
+        <>
+          <label htmlFor="ci-topic" className="field-label">
+            Topic <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="ci-topic"
+            type="text"
+            className="input-text"
+            value={ciTopic}
+            onChange={(e) => onCiTopicChange(e.target.value)}
+            placeholder="e.g. Cloud Cost Optimisation"
+            disabled={loading}
+          />
+
+          <label htmlFor="ci-goal" className="field-label">
+            Goal (optional)
+          </label>
+          <input
+            id="ci-goal"
+            type="text"
+            className="input-text"
+            value={ciGoal}
+            onChange={(e) => onCiGoalChange(e.target.value)}
+            placeholder="e.g. Secure leadership commitment to a 3-year platform investment"
+            disabled={loading}
+          />
+
+          <label htmlFor="ci-audience" className="field-label">
+            Audience (optional)
+          </label>
+          <input
+            id="ci-audience"
+            type="text"
+            className="input-text"
+            value={ciAudience}
+            onChange={(e) => onCiAudienceChange(e.target.value)}
+            placeholder="e.g. Engineering leadership"
+            disabled={loading}
+          />
+        </>
+      ) : (
+        <>
+          <label htmlFor="input-text" className="field-label">
+            Raw input text
+          </label>
+          <textarea
+            id="input-text"
+            className="input-textarea"
+            value={text}
+            onChange={(e) => onTextChange(e.target.value)}
+            placeholder="Paste meeting notes, sprint data, ADO export, etc."
+            rows={10}
+            disabled={loading}
+          />
+        </>
+      )}
 
       <div className="field-row">
         <fieldset className="mode-fieldset">

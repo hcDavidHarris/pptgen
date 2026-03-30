@@ -16,11 +16,19 @@ class GenerateRequest(BaseModel):
     """Request body for ``POST /generate``.
 
     Attributes:
-        text:         Raw input text to process through the pipeline.
-        mode:         Execution mode — ``"deterministic"`` (default) or ``"ai"``.
-        template_id:  Optional template override.  Must be a registered ID.
-        artifacts:    If ``True``, export pipeline artifacts alongside the deck.
-        preview_only: If ``True``, plan the deck but skip rendering the ``.pptx``.
+        text:           Raw input text to process through the pipeline.
+                        When ``content_intent`` is also provided, this field
+                        is carried for logging only — the CI path ignores it.
+        mode:           Execution mode — ``"deterministic"`` (default) or ``"ai"``.
+        template_id:    Optional template override.  Must be a registered ID.
+        artifacts:      If ``True``, export pipeline artifacts alongside the deck.
+        preview_only:   If ``True``, plan the deck but skip rendering the ``.pptx``.
+        content_intent: Structured content intent for the content-intelligence path.
+                        When supplied the CI layer drives deck building and the
+                        legacy playbook router is bypassed entirely.
+                        Required keys: ``topic`` (str).
+                        Optional keys: ``goal`` (str), ``audience`` (str),
+                        ``context`` (dict).
     """
 
     text: str = Field(..., description="Raw input text for the pipeline.")
@@ -30,6 +38,13 @@ class GenerateRequest(BaseModel):
     preview_only: bool = Field(
         False,
         description="Plan the deck without rendering a .pptx file.",
+    )
+    content_intent: dict | None = Field(
+        None,
+        description=(
+            "Structured content intent.  When present the content-intelligence path "
+            "drives deck generation.  Must contain at minimum a 'topic' key."
+        ),
     )
 
 
@@ -88,6 +103,13 @@ class GenerateResponse(BaseModel):
     output_path: str | None = None
     artifact_paths: dict[str, str] | None = None
     notes: str | None = None
+    content_intent_mode: bool = Field(
+        False,
+        description=(
+            "True when the content-intelligence path drove deck generation "
+            "(playbook_id will be 'content-intelligence')."
+        ),
+    )
 
 
 class ErrorResponse(BaseModel):
