@@ -24,3 +24,6 @@ build/
 # Node
 web/node_modules/
 node_modules/
+
+web/.vite/
+.vite/
