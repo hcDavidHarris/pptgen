@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/git_repos/pptgen -type f -name *ingestion* -o -name *intelligence*)",
+      "Bash(for dir:*)",
+      "Bash(do echo:*)",
+      "Read(//c/git_repos/pptgen/src/pptgen/$dir/**)",
+      "Bash(done)",
+      "Bash(git ls-tree:*)"
+    ]
+  }
+}

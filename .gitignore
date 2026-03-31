@@ -19,3 +19,8 @@ build/
 
 # Generated presentations
 *.pptx
+
+
+# Node
+web/node_modules/
+node_modules/
