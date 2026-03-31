@@ -13,8 +13,9 @@ Core Assertion: {assertion}
 Supporting Points:
 {supporting_points}
 
-Generate 1 to 3 implications — what this means for the audience, what action \
-it demands, or what risk it surfaces. Each must be a complete, specific sentence.
+Generate 1 to 3 implications. Each must either demand a specific action \
+(use "must", "requires", "should immediately") or state a concrete business \
+consequence (financial, regulatory, or operational). Do not restate the assertion.
 
 Output ONLY the JSON object. No prose, no code fences, no explanation.
 Start with {{ and end with }}.

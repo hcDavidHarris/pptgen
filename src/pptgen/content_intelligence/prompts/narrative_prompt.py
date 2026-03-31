@@ -12,10 +12,12 @@ Topic: {topic}
 Goal: {goal}
 Audience: {audience}
 
-Produce 3 to 5 slides. Each slide must have:
+Produce 3 to 5 slides that tell a logical story arc: establish the problem first, \
+then evidence or solution, then business impact.
+Each slide must have:
 - title: concise, specific, references the topic
 - intent_type: one of "problem", "solution", "impact", "metrics", "context", "recommendation"
-- key_points: 2 to 4 specific key points
+- key_points: 2 to 4 specific claims — not topic labels, not vague phrases
 
 Output ONLY the JSON array. No prose, no code fences, no explanation.
 Start with [ and end with ].
