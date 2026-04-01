@@ -6,6 +6,7 @@ from .slides import (
     ImageCaptionSlide,
     MetricItem,
     MetricSummarySlide,
+    PrimitiveSlide,
     SectionSlide,
     SlideUnion,
     TitleSlide,
@@ -22,5 +23,6 @@ __all__ = [
     "MetricItem",
     "MetricSummarySlide",
     "ImageCaptionSlide",
+    "PrimitiveSlide",
     "SlideUnion",
 ]

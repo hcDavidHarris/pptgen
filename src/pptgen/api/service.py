@@ -104,6 +104,51 @@ def _parse_content_intent(raw: dict) -> ContentIntent:
     )
 
 
+def _ingest_ado_board(payload: dict) -> ContentIntent:
+    """Convert an ADO board payload dict into a :class:`ContentIntent`.
+
+    Delegates to the Phase 12C ingestion pipeline:
+        AdoBoardAdapter → AdoBoardExtractor → DeliveryBrief → CI bridge
+
+    Args:
+        payload: Dict with required ``title`` key, and optional
+                 ``source_id``, ``content``, and ``metadata``
+                 (which may contain ``work_items``).
+
+    Returns:
+        :class:`ContentIntent` ready for ``generate_presentation()``.
+
+    Raises:
+        APIError: If the payload is missing required fields or they are empty.
+    """
+    from ..ingestion.adapters.base import AdapterPayloadError
+    from ..ingestion.ado_board_orchestrator import ingest_ado_board_to_content_intent
+    from ..ingestion.validators.brief_validator import BriefValidationError
+    from ..ingestion.validators.source_payload_validator import SourceValidationError
+
+    try:
+        ingestion_intent = ingest_ado_board_to_content_intent(payload)
+    except AdapterPayloadError as exc:
+        raise APIError(str(exc), status_code=400) from exc
+    except SourceValidationError as exc:
+        raise APIError(
+            f"ADO board payload failed source validation: {exc}",
+            status_code=400,
+        ) from exc
+    except BriefValidationError as exc:
+        raise APIError(
+            f"ADO board ingestion produced an invalid brief: {exc}",
+            status_code=422,
+        ) from exc
+
+    return ContentIntent(
+        topic=ingestion_intent.topic,
+        goal=ingestion_intent.goal,
+        audience=ingestion_intent.audience,
+        context=ingestion_intent.context,
+    )
+
+
 def _ingest_transcript(payload: dict) -> ContentIntent:
     """Convert a transcript payload dict into a :class:`ContentIntent`.
 
@@ -149,13 +194,15 @@ def run_generate(
     request_id: str | None = None,
     content_intent: dict | None = None,
     transcript_payload: dict | None = None,
+    ado_board_payload: dict | None = None,
 ) -> tuple[PipelineResult, RunContext]:
     """Validate inputs, run the generation pipeline, and return run metadata.
 
     Mode detection priority:
-        1. ``transcript_payload`` — transcript ingestion path (Phase 12B)
-        2. ``content_intent``     — direct content-intelligence path
-        3. neither                — raw text / playbook path
+        1. ``ado_board_payload``  — ADO board ingestion path (Phase 12C)
+        2. ``transcript_payload`` — transcript ingestion path (Phase 12B)
+        3. ``content_intent``     — direct content-intelligence path
+        4. neither                — raw text / playbook path
 
     Args:
         text:               Raw input text.
@@ -169,6 +216,11 @@ def run_generate(
                             ingested via Phase 12B pipeline and converted to a
                             ContentIntent that feeds the CI layer.  Takes
                             priority over ``content_intent``.
+        ado_board_payload:  Optional ADO board payload dict.  When present,
+                            ingested via Phase 12C pipeline and converted to a
+                            ContentIntent that feeds the CI layer.  Takes
+                            priority over ``transcript_payload`` and
+                            ``content_intent``.
 
     Returns:
         A tuple of (:class:`~pptgen.pipeline.PipelineResult`,
@@ -185,12 +237,16 @@ def run_generate(
             status_code=400,
         )
 
-    # Priority 1 — transcript ingestion path (Phase 12B).
-    # Convert transcript payload → typed brief → ContentIntent via ingestion layer.
+    # Priority 1 — ADO board ingestion path (Phase 12C).
+    # Convert board payload → DeliveryBrief → ContentIntent via ingestion layer.
     parsed_intent: ContentIntent | None = None
-    if transcript_payload is not None:
+    if ado_board_payload is not None:
+        parsed_intent = _ingest_ado_board(ado_board_payload)
+    # Priority 2 — transcript ingestion path (Phase 12B).
+    # Convert transcript payload → typed brief → ContentIntent via ingestion layer.
+    elif transcript_payload is not None:
         parsed_intent = _ingest_transcript(transcript_payload)
-    # Priority 2 — direct content-intelligence path.
+    # Priority 3 — direct content-intelligence path.
     elif content_intent is not None:
         parsed_intent = _parse_content_intent(content_intent)
 

@@ -28,6 +28,14 @@ interface Props {
   onTranscriptMeetingTypeChange: (v: string) => void
   transcriptAudience: string
   onTranscriptAudienceChange: (v: string) => void
+  adoBoardTitle: string
+  onAdoBoardTitleChange: (v: string) => void
+  adoBoardWorkItemsJson: string
+  onAdoBoardWorkItemsJsonChange: (v: string) => void
+  adoBoardIteration: string
+  onAdoBoardIterationChange: (v: string) => void
+  adoBoardTeam: string
+  onAdoBoardTeamChange: (v: string) => void
   mode: ExecutionMode
   onModeChange: (v: ExecutionMode) => void
   templateId: string
@@ -59,6 +67,14 @@ export function GenerateForm({
   onTranscriptMeetingTypeChange,
   transcriptAudience,
   onTranscriptAudienceChange,
+  adoBoardTitle,
+  onAdoBoardTitleChange,
+  adoBoardWorkItemsJson,
+  onAdoBoardWorkItemsJsonChange,
+  adoBoardIteration,
+  onAdoBoardIterationChange,
+  adoBoardTeam,
+  onAdoBoardTeamChange,
   mode,
   onModeChange,
   templateId,
@@ -72,13 +88,31 @@ export function GenerateForm({
 }: Props) {
   const isCi = inputMode === 'content-intelligence'
   const isTranscript = inputMode === 'transcript'
+  const isAdoBoard = inputMode === 'ado-board'
+
+  // Validate work items JSON inline — computed, no state needed.
+  // Only active when ADO board mode is selected and the textarea is non-empty.
+  const adoBoardJsonError: string | null = (() => {
+    if (!isAdoBoard || !adoBoardWorkItemsJson.trim()) return null
+    try {
+      const parsed = JSON.parse(adoBoardWorkItemsJson.trim())
+      if (!Array.isArray(parsed)) {
+        return 'Work items must be a JSON array — e.g. [ { "title": "…", "state": "Active" }, … ]'
+      }
+      return null
+    } catch {
+      return 'Invalid JSON — check for missing quotes, commas, or brackets.'
+    }
+  })()
 
   const canSubmit = (
-    isTranscript
-      ? transcriptTitle.trim().length > 0 && transcriptText.trim().length > 0
-      : isCi
-        ? ciTopic.trim().length > 0
-        : text.trim().length > 0
+    isAdoBoard
+      ? adoBoardTitle.trim().length > 0 && adoBoardJsonError === null
+      : isTranscript
+        ? transcriptTitle.trim().length > 0 && transcriptText.trim().length > 0
+        : isCi
+          ? ciTopic.trim().length > 0
+          : text.trim().length > 0
   ) && !loading
 
   return (
@@ -88,7 +122,7 @@ export function GenerateForm({
       {/* Input mode toggle */}
       <fieldset className="mode-fieldset">
         <legend className="field-label">Input mode</legend>
-        {(['text', 'content-intelligence', 'transcript'] as InputMode[]).map((m) => (
+        {(['text', 'content-intelligence', 'transcript', 'ado-board'] as InputMode[]).map((m) => (
           <label key={m} className="radio-label">
             <input
               type="radio"
@@ -98,12 +132,84 @@ export function GenerateForm({
               onChange={() => onInputModeChange(m)}
               disabled={loading}
             />
-            {m === 'text' ? 'Raw text' : m === 'content-intelligence' ? 'Content intelligence' : 'Transcript'}
+            {m === 'text'
+              ? 'Raw text'
+              : m === 'content-intelligence'
+                ? 'Content intelligence'
+                : m === 'transcript'
+                  ? 'Transcript'
+                  : 'ADO Boards'}
           </label>
         ))}
       </fieldset>
 
-      {isTranscript ? (
+      {isAdoBoard ? (
+        <>
+          <label htmlFor="ado-board-title" className="field-label">
+            Board title <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="ado-board-title"
+            type="text"
+            className="input-text"
+            value={adoBoardTitle}
+            onChange={(e) => onAdoBoardTitleChange(e.target.value)}
+            placeholder="e.g. Q3 Delivery Status"
+            disabled={loading}
+          />
+
+          <label htmlFor="ado-board-work-items" className="field-label">
+            Work items JSON (optional)
+          </label>
+          <textarea
+            id="ado-board-work-items"
+            className={`input-textarea${adoBoardJsonError ? ' input-textarea--error' : ''}`}
+            value={adoBoardWorkItemsJson}
+            onChange={(e) => onAdoBoardWorkItemsJsonChange(e.target.value)}
+            placeholder={'Paste a JSON array of work items, e.g.\n[\n  {"id": 101, "title": "...", "state": "In Progress", "type": "Feature", "priority": 1}\n]'}
+            rows={10}
+            disabled={loading}
+            aria-describedby={adoBoardJsonError ? 'ado-board-work-items-error' : undefined}
+          />
+          {adoBoardJsonError && (
+            <p id="ado-board-work-items-error" className="field-error" role="alert">
+              {adoBoardJsonError}
+            </p>
+          )}
+
+          <div className="field-row">
+            <div className="template-field">
+              <label htmlFor="ado-board-iteration" className="field-label">
+                Iteration / sprint (optional)
+              </label>
+              <input
+                id="ado-board-iteration"
+                type="text"
+                className="input-text"
+                value={adoBoardIteration}
+                onChange={(e) => onAdoBoardIterationChange(e.target.value)}
+                placeholder="e.g. Sprint 42"
+                disabled={loading}
+              />
+            </div>
+
+            <div className="template-field">
+              <label htmlFor="ado-board-team" className="field-label">
+                Team (optional)
+              </label>
+              <input
+                id="ado-board-team"
+                type="text"
+                className="input-text"
+                value={adoBoardTeam}
+                onChange={(e) => onAdoBoardTeamChange(e.target.value)}
+                placeholder="e.g. Interchange"
+                disabled={loading}
+              />
+            </div>
+          </div>
+        </>
+      ) : isTranscript ? (
         <>
           <label htmlFor="transcript-title" className="field-label">
             Meeting title <span aria-hidden="true">*</span>

@@ -43,12 +43,17 @@ export function ResultPanel({ result, mode }: Props) {
         <dt>playbook</dt>
         <dd>
           {result.playbook_id}
-          {result.transcript_mode && (
+          {result.ado_board_mode && (
+            <span className="ado-board-badge" title="Deck built via ADO board ingestion path">
+              {' '}ADO Board
+            </span>
+          )}
+          {!result.ado_board_mode && result.transcript_mode && (
             <span className="transcript-badge" title="Deck built via transcript-ingestion path">
               {' '}Transcript
             </span>
           )}
-          {!result.transcript_mode && result.content_intent_mode && (
+          {!result.ado_board_mode && !result.transcript_mode && result.content_intent_mode && (
             <span className="ci-badge" title="Deck built via content-intelligence path">
               {' '}CI
             </span>

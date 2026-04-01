@@ -55,6 +55,23 @@ const TRANSCRIPT_GENERATE_RESPONSE = {
   content_intent_mode: false,
 }
 
+const ADO_BOARD_GENERATE_RESPONSE = {
+  request_id: 'ado-gen-001',
+  success: true,
+  playbook_id: 'ado-board-intelligence',
+  template_id: null,
+  mode: 'deterministic',
+  stage: 'rendered',
+  slide_count: 4,
+  slide_types: ['title', 'bullets', 'bullets', 'closing'],
+  output_path: '/tmp/pptgen_api/ado-001/output.pptx',
+  artifact_paths: null,
+  notes: null,
+  ado_board_mode: true,
+  transcript_mode: false,
+  content_intent_mode: false,
+}
+
 function makeFetchQueue(...responses: Array<{ ok: boolean; status: number; body: unknown }>) {
   let index = 0
   return vi.fn().mockImplementation(() => {
@@ -325,5 +342,92 @@ describe('GeneratePage — transcript mode', () => {
     expect(body.transcript_payload).toBeDefined()
     expect(body.transcript_payload.title).toBe('Leadership Sync')
     expect(body.transcript_payload.content).toBe('Transcript content here.')
+  })
+})
+
+describe('GeneratePage — ADO Board mode', () => {
+  it('renders ADO Boards radio button', async () => {
+    vi.stubGlobal('fetch', makeFetchQueue(ok(TEMPLATES_RESPONSE)))
+    renderPage()
+    await waitFor(() => screen.getByRole('radio', { name: 'ADO Boards' }))
+    expect(screen.getByRole('radio', { name: 'ADO Boards' })).toBeInTheDocument()
+  })
+
+  it('shows ADO board fields when ADO Boards mode is selected', async () => {
+    vi.stubGlobal('fetch', makeFetchQueue(ok(TEMPLATES_RESPONSE)))
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('radio', { name: 'ADO Boards' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /board title/i })).toBeInTheDocument()
+    )
+    expect(screen.getByRole('textbox', { name: /work items json/i })).toBeInTheDocument()
+  })
+
+  it('hides raw textarea when ADO Boards mode is selected', async () => {
+    vi.stubGlobal('fetch', makeFetchQueue(ok(TEMPLATES_RESPONSE)))
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('radio', { name: 'ADO Boards' }))
+
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: /raw input text/i })).not.toBeInTheDocument()
+    )
+  })
+
+  it('Generate button disabled when ADO board title is empty', async () => {
+    vi.stubGlobal('fetch', makeFetchQueue(ok(TEMPLATES_RESPONSE)))
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('radio', { name: 'ADO Boards' }))
+    await waitFor(() => screen.getByRole('textbox', { name: /board title/i }))
+
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+  })
+
+  it('shows ADO board badge after ADO board generate', async () => {
+    vi.stubGlobal('fetch', makeFetchQueue(ok(TEMPLATES_RESPONSE), ok(ADO_BOARD_GENERATE_RESPONSE)))
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('radio', { name: 'ADO Boards' }))
+    await waitFor(() => screen.getByRole('textbox', { name: /board title/i }))
+
+    await user.type(screen.getByRole('textbox', { name: /board title/i }), 'Q3 Status')
+    await user.click(screen.getByRole('button', { name: 'Generate' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Generated' })).toBeInTheDocument()
+    )
+    expect(screen.getByText('ado-board-intelligence')).toBeInTheDocument()
+    expect(screen.getByText('ADO Board', { selector: 'span' })).toBeInTheDocument()
+  })
+
+  it('sends ado_board_payload and empty text in fetch body', async () => {
+    const fetchSpy = makeFetchQueue(ok(TEMPLATES_RESPONSE), ok(ADO_BOARD_GENERATE_RESPONSE))
+    vi.stubGlobal('fetch', fetchSpy)
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.click(screen.getByRole('radio', { name: 'ADO Boards' }))
+    await waitFor(() => screen.getByRole('textbox', { name: /board title/i }))
+
+    await user.type(screen.getByRole('textbox', { name: /board title/i }), 'Q3 Sprint Status')
+    await user.click(screen.getByRole('button', { name: 'Generate' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('heading', { name: 'Generated' })).toBeInTheDocument()
+    )
+
+    // The second fetch call is the generate call
+    const generateCall = fetchSpy.mock.calls[1]
+    const body = JSON.parse(generateCall[1].body as string)
+    expect(body.text).toBe('')
+    expect(body.ado_board_payload).toBeDefined()
+    expect(body.ado_board_payload.title).toBe('Q3 Sprint Status')
   })
 })

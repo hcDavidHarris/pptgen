@@ -8,7 +8,7 @@ type Action =
   | { type: 'success'; payload: RunStats }
   | { type: 'error'; payload: Error }
 
-function reducer(state: State, action: Action): State {
+function reducer(_state: State, action: Action): State {
   switch (action.type) {
     case 'loading': return { stats: null, loading: true, error: null }
     case 'success': return { stats: action.payload, loading: false, error: null }

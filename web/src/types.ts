@@ -219,6 +219,19 @@ export interface TranscriptPayload {
   }
 }
 
+/** ADO Board payload for the ADO board ingestion path (Phase 12C). */
+export interface AdoBoardPayload {
+  title: string
+  content?: string
+  metadata?: {
+    work_items?: unknown[]
+    iteration?: string
+    team?: string
+    date?: string
+    [key: string]: unknown
+  }
+}
+
 export interface GenerateRequest {
   text: string
   mode: ExecutionMode
@@ -229,10 +242,14 @@ export interface GenerateRequest {
   /** Transcript payload for the transcript-ingestion path. Takes priority
    *  over content_intent when both are present. text must be "" when set. */
   transcript_payload?: TranscriptPayload
+  /** ADO Board payload for the ADO board ingestion path. Takes priority
+   *  over transcript_payload and content_intent. text must be "" when set. */
+  ado_board_payload?: AdoBoardPayload
 }
 
 export interface GenerateResponse {
   request_id: string
+  run_id?: string | null
   success: boolean
   playbook_id: string
   template_id: string | null
@@ -247,6 +264,9 @@ export interface GenerateResponse {
   /** True when the transcript-ingestion path drove deck generation.
    *  playbook_id will be "transcript-intelligence". */
   transcript_mode?: boolean
+  /** True when the ADO board ingestion path drove deck generation.
+   *  playbook_id will be "ado-board-intelligence". */
+  ado_board_mode?: boolean
 }
 
 export interface HealthResponse {

@@ -1,0 +1,9 @@
+schema_version: 1
+asset_id: logo.company
+version: 1.0.0
+type: logo
+source: "assets/logos/company.svg"
+metadata:
+  description: "Company logo — primary lockup"
+  alt_text: "Company Logo"
+  preferred_background: "light"

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -151,18 +151,59 @@ class ImageCaptionSlide(_SlideBase):
     caption: str = Field(min_length=1)
 
 
+class PrimitiveSlide(BaseModel):
+    """Phase 9 primitive-based slide (no ``type`` discriminator).
+
+    Used when a deck YAML entry declares ``primitive: <id>`` and ``content:``
+    instead of a legacy ``type:`` field.  The primitive resolver transforms
+    these into layout-ready slot structures before the renderer runs.
+
+    ``extra="ignore"`` allows Phase 9 resolution stages to inject additional
+    keys (``layout``, ``slots``) without causing downstream validation errors.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    primitive: str = Field(min_length=1)
+    content: dict[str, Any] = Field(default_factory=dict)
+    id: str | None = None
+    notes: str | None = None
+    visible: bool = True
+
+
 # ---------------------------------------------------------------------------
 # Discriminated union — the single type used by DeckFile.slides
 # ---------------------------------------------------------------------------
 
+def _slide_discriminator(v: Any) -> str:
+    """Return the discriminator tag for a raw slide dict or parsed model.
+
+    Routes slides with a ``primitive`` key to :class:`PrimitiveSlide`.
+    Routes all other slides to the appropriate legacy type via the ``type``
+    field value.  Unknown values are returned verbatim so Pydantic can
+    produce a clear "no matching model" error.
+    """
+    if isinstance(v, dict):
+        if "primitive" in v:
+            return "primitive"
+        return v.get("type", "")
+    # Already-parsed model instance (e.g. during serialization round-trips).
+    if isinstance(v, PrimitiveSlide):
+        return "primitive"
+    if hasattr(v, "type"):
+        return v.type
+    return ""
+
+
 SlideUnion = Annotated[
     Union[
-        TitleSlide,
-        SectionSlide,
-        BulletsSlide,
-        TwoColumnSlide,
-        MetricSummarySlide,
-        ImageCaptionSlide,
+        Annotated[TitleSlide, Tag("title")],
+        Annotated[SectionSlide, Tag("section")],
+        Annotated[BulletsSlide, Tag("bullets")],
+        Annotated[TwoColumnSlide, Tag("two_column")],
+        Annotated[MetricSummarySlide, Tag("metric_summary")],
+        Annotated[ImageCaptionSlide, Tag("image_caption")],
+        Annotated[PrimitiveSlide, Tag("primitive")],
     ],
-    Field(discriminator="type"),
+    Discriminator(_slide_discriminator),
 ]

@@ -1,0 +1,27 @@
+schema_version: 1
+primitive_id: metrics_slide
+version: 1.0.0
+layout_id: metric_dashboard
+constraints:
+  allow_extra_content: false
+slots:
+  headline_metric:
+    required: true
+    content_type: string
+    maps_to: headline
+    description: "Primary metric value and label (e.g. '95% Uptime')"
+  detail_left:
+    required: false
+    content_type: dict
+    maps_to: detail_left
+    description: "Supporting metric — left position"
+  detail_center:
+    required: false
+    content_type: dict
+    maps_to: detail_center
+    description: "Supporting metric — center position"
+  detail_right:
+    required: false
+    content_type: dict
+    maps_to: detail_right
+    description: "Supporting metric — right position"

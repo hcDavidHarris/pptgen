@@ -1,0 +1,13 @@
+schema_version: 1
+theme_id: technical
+version: "1.0.0"
+brand_id: healthcatalyst
+
+# Technical theme — monospace emphasis, compact sizing.
+# Intended for engineering reviews and architecture presentations.
+
+token_overrides:
+  font.family.mono: "JetBrains Mono"
+  font.size.body: 16
+  font.size.caption: 11
+  spacing.section_gap: 36

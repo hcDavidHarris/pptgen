@@ -37,6 +37,38 @@ class TranscriptPayload(BaseModel):
     )
 
 
+class AdoBoardPayload(BaseModel):
+    """ADO Board payload for the ADO board ingestion path (Phase 12C).
+
+    Attributes:
+        title:    Human-readable label for the board / sprint / iteration.
+        content:  Optional pre-serialised board summary text.
+        metadata: Optional board context.  Recognised keys:
+
+                      work_items (list[dict]) — work item records.
+                          Each item may have: id, title, state, type,
+                          owner, priority, tags, created_date, updated_date.
+                          All fields except ``title`` are optional.
+
+                      iteration (str) — sprint or iteration label.
+                      team (str)      — team name.
+                      date (str)      — reporting date (ISO-8601).
+    """
+
+    title: str = Field(..., description="Human-readable label for the board or sprint.")
+    content: str | None = Field(
+        None,
+        description="Optional pre-serialised board summary text.",
+    )
+    metadata: dict | None = Field(
+        None,
+        description=(
+            "Optional board context.  Recognised keys: work_items (list of work item dicts), "
+            "iteration (str), team (str), date (str ISO-8601)."
+        ),
+    )
+
+
 class GenerateRequest(BaseModel):
     """Request body for ``POST /generate``.
 
@@ -87,6 +119,15 @@ class GenerateRequest(BaseModel):
             "Transcript payload for the transcript-ingestion path.  "
             "When present, takes priority over content_intent.  "
             "Must contain non-empty 'title' and 'content'."
+        ),
+    )
+    ado_board_payload: AdoBoardPayload | None = Field(
+        None,
+        description=(
+            "ADO Board payload for the ADO board ingestion path (Phase 12C).  "
+            "When present, takes priority over transcript_payload and content_intent.  "
+            "Must contain a non-empty 'title'.  Work items are passed via "
+            "metadata.work_items."
         ),
     )
 
@@ -158,6 +199,13 @@ class GenerateResponse(BaseModel):
         description=(
             "True when the transcript-ingestion path drove deck generation "
             "(playbook_id will be 'transcript-intelligence')."
+        ),
+    )
+    ado_board_mode: bool = Field(
+        False,
+        description=(
+            "True when the ADO board ingestion path drove deck generation "
+            "(playbook_id will be 'ado-board-intelligence')."
         ),
     )
 

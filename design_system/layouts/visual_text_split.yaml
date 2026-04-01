@@ -1,0 +1,22 @@
+schema_version: 1
+layout_id: visual_text_split
+version: 1.0.0
+constraints:
+  allow_extra_slots: false
+regions:
+  visual:
+    required: true
+    label: "Visual / Image Area"
+    position:
+      x: 5
+      y: 15
+      width: 55
+      height: 80
+  text:
+    required: true
+    label: "Text / Narrative Area"
+    position:
+      x: 63
+      y: 15
+      width: 32
+      height: 80

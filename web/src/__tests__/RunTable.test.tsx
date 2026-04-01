@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { RunTable } from '../components/RunTable'
@@ -10,11 +10,9 @@ function makeRun(overrides: Partial<RunListItem> = {}): RunListItem {
     status: 'succeeded',
     source: 'api_sync',
     job_id: null,
-    request_id: null,
     mode: 'deterministic',
     template_id: 'hc-default',
     playbook_id: 'meeting-notes',
-    profile: 'dev',
     started_at: '2026-03-24T10:00:00.000Z',
     completed_at: '2026-03-24T10:00:02.500Z',
     total_ms: 2500,

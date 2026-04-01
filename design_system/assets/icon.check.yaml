@@ -1,0 +1,8 @@
+schema_version: 1
+asset_id: icon.check
+version: 1.0.0
+type: icon
+source: "assets/icons/check.svg"
+metadata:
+  description: "Checkmark / success indicator icon"
+  alt_text: "Check"

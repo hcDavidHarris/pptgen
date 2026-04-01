@@ -4,10 +4,15 @@ Commands:
     pptgen build --input deck.yaml [--output path/to/output.pptx]
     pptgen validate --input deck.yaml
     pptgen list-templates
+    pptgen generate <input_file> [--output <path>] [--debug]
+    pptgen generate-batch <directory> [--connector <type>] [--output-dir <path>] [--debug]
+    pptgen ingest <connector_type> <input_file> [--debug]
     pptgen deck scaffold [--template <id>] [--output <path>]
     pptgen template inspect --template <id>
     pptgen example list [--library <name>]
     pptgen workspace init [--path <dir>]
+    pptgen job submit <input_file> [--template <id>] [--batch] [--artifacts]
+    pptgen job status <job_id> [--json]
 """
 
 from __future__ import annotations
@@ -23,6 +28,11 @@ from ..render import render_deck
 from ..validators.deck_validator import validate_deck
 from .deck_scaffold import deck_app
 from .example_commands import example_app
+from .generate import generate_command
+from .generate_batch import generate_batch_command
+from .ingest import ingest_command
+from .job_commands import job_app
+from .run_commands import run_app
 from .template_inspect import template_app
 from .workspace_init import workspace_app
 
@@ -35,8 +45,15 @@ app = typer.Typer(
 # Register sub-apps
 app.add_typer(deck_app, name="deck")
 app.add_typer(example_app, name="example")
+app.add_typer(job_app, name="job")
+app.add_typer(run_app, name="runs")
 app.add_typer(template_app, name="template")
 app.add_typer(workspace_app, name="workspace")
+
+# Register top-level commands defined in sub-modules
+app.command("generate")(generate_command)
+app.command("generate-batch")(generate_batch_command)
+app.command("ingest")(ingest_command)
 
 _REGISTRY_PATH = Path(__file__).parent.parent.parent.parent / "templates" / "registry.yaml"
 

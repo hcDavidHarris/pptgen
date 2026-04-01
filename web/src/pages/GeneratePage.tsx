@@ -7,7 +7,7 @@ import { ResultPanel } from '../components/ResultPanel'
 import { StatusBanner } from '../components/StatusBanner'
 
 type ResultMode = 'preview' | 'generate'
-export type InputMode = 'text' | 'content-intelligence' | 'transcript'
+export type InputMode = 'text' | 'content-intelligence' | 'transcript' | 'ado-board'
 
 export function GeneratePage() {
   // ── form state ──────────────────────────────────────────────────────────
@@ -27,6 +27,12 @@ export function GeneratePage() {
   const [transcriptText, setTranscriptText] = useState('')
   const [transcriptMeetingType, setTranscriptMeetingType] = useState('')
   const [transcriptAudience, setTranscriptAudience] = useState('')
+
+  // ── ADO Board state ───────────────────────────────────────────────────────
+  const [adoBoardTitle, setAdoBoardTitle] = useState('')
+  const [adoBoardWorkItemsJson, setAdoBoardWorkItemsJson] = useState('')
+  const [adoBoardIteration, setAdoBoardIteration] = useState('')
+  const [adoBoardTeam, setAdoBoardTeam] = useState('')
 
   // ── async state ──────────────────────────────────────────────────────────
   const [templates, setTemplates] = useState<string[]>([])
@@ -52,6 +58,7 @@ export function GeneratePage() {
   function buildRequest(previewOnly: boolean, includeArtifacts: boolean) {
     const isCiMode = inputMode === 'content-intelligence'
     const isTranscriptMode = inputMode === 'transcript'
+    const isAdoBoardMode = inputMode === 'ado-board'
 
     const ciPayload =
       isCiMode && ciTopic.trim()
@@ -74,16 +81,43 @@ export function GeneratePage() {
           }
         : undefined
 
+    // Parse work items JSON if provided.
+    // The form blocks submission when JSON is invalid, so this path only
+    // runs with valid JSON. The fallback (undefined) keeps the request safe
+    // if somehow called without prior validation.
+    let parsedWorkItems: unknown[] | undefined
+    if (isAdoBoardMode && adoBoardWorkItemsJson.trim()) {
+      try {
+        const parsed = JSON.parse(adoBoardWorkItemsJson.trim())
+        parsedWorkItems = Array.isArray(parsed) ? parsed : undefined
+      } catch {
+        parsedWorkItems = undefined
+      }
+    }
+
+    const adoBoardPayload =
+      isAdoBoardMode && adoBoardTitle.trim()
+        ? {
+            title: adoBoardTitle.trim(),
+            metadata: {
+              work_items: parsedWorkItems,
+              iteration: adoBoardIteration.trim() || undefined,
+              team: adoBoardTeam.trim() || undefined,
+            },
+          }
+        : undefined
+
     return {
-      // In CI and transcript modes `text` has no pipeline meaning.
+      // In CI, transcript, and ADO board modes `text` has no pipeline meaning.
       // Sending an empty string prevents the raw-text path from activating.
-      text: isCiMode || isTranscriptMode ? '' : text,
+      text: isCiMode || isTranscriptMode || isAdoBoardMode ? '' : text,
       mode,
       template_id: templateId || undefined,
       artifacts: includeArtifacts,
       preview_only: previewOnly,
       content_intent: ciPayload,
       transcript_payload: transcriptPayload,
+      ado_board_payload: adoBoardPayload,
     }
   }
 
@@ -142,6 +176,14 @@ export function GeneratePage() {
         onTranscriptMeetingTypeChange={setTranscriptMeetingType}
         transcriptAudience={transcriptAudience}
         onTranscriptAudienceChange={setTranscriptAudience}
+        adoBoardTitle={adoBoardTitle}
+        onAdoBoardTitleChange={setAdoBoardTitle}
+        adoBoardWorkItemsJson={adoBoardWorkItemsJson}
+        onAdoBoardWorkItemsJsonChange={setAdoBoardWorkItemsJson}
+        adoBoardIteration={adoBoardIteration}
+        onAdoBoardIterationChange={setAdoBoardIteration}
+        adoBoardTeam={adoBoardTeam}
+        onAdoBoardTeamChange={setAdoBoardTeam}
         mode={mode}
         onModeChange={setMode}
         templateId={templateId}

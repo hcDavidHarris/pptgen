@@ -8,7 +8,7 @@ type Action =
   | { type: 'success'; payload: SystemHealth }
   | { type: 'error'; payload: Error }
 
-function reducer(state: State, action: Action): State {
+function reducer(_state: State, action: Action): State {
   switch (action.type) {
     case 'loading': return { health: null, loading: true, error: null }
     case 'success': return { health: action.payload, loading: false, error: null }

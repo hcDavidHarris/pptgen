@@ -1,11 +1,19 @@
 """Pydantic models for deck-level structure.
 
-A deck YAML file has exactly two top-level keys:
+Legacy deck YAML has exactly two top-level keys:
 
     deck:    (DeckMetadata)
     slides:  (list[SlideUnion])
 
-Both are required.  Any other top-level key is rejected by extra='forbid'.
+Phase 9 structured deck YAML may additionally include:
+
+    primitive: <id>          — top-level primitive for single-slide decks
+    theme:     <id>          — design system theme override
+    content:   {…}           — content fields for a top-level primitive
+    layout:    <id>          — injected by primitive resolver
+    slots:     {…}           — injected by primitive resolver
+
+Any other top-level key is still rejected by extra='forbid'.
 """
 
 from __future__ import annotations
@@ -54,11 +62,22 @@ class DeckMetadata(BaseModel):
 class DeckFile(BaseModel):
     """Top-level model for a complete pptgen deck YAML file.
 
-    Validates that the document has exactly the two expected top-level keys
+    Validates that the document has the two required top-level keys
     (``deck`` and ``slides``) and that ``slides`` contains at least one slide.
+
+    Optional Phase 9 fields (``primitive``, ``theme``, ``content``,
+    ``layout``, ``slots``) are accepted when present.  All other extra
+    top-level keys are still rejected by ``extra='forbid'``.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     deck: DeckMetadata
     slides: list[SlideUnion] = Field(min_length=1)
+
+    # Phase 9 structured deck fields (all optional)
+    primitive: str | None = None
+    theme: str | None = None
+    content: dict[str, Any] | None = None
+    layout: str | None = None
+    slots: dict[str, Any] | None = None

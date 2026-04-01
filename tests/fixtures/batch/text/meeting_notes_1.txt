@@ -1,0 +1,16 @@
+Meeting: Platform Team Weekly Sync
+Date: 2026-03-17
+Attendees: Alice, Bob, Carol
+
+Action items from last week reviewed. All three items closed.
+
+Agenda:
+- Sprint retrospective discussion
+- Action items: update deployment runbook, schedule architecture review
+- Decisions: adopt feature-flag rollout strategy for next release
+- Follow-up required on metrics dashboard timeline
+
+Discussion: team raised concern about test coverage gaps in the ingestion layer.
+Action item: Bob will open tickets to address coverage before next sprint.
+
+Meeting adjourned.

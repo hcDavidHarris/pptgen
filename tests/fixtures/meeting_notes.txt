@@ -1,0 +1,23 @@
+Meeting Notes — Q3 Engineering Planning Session
+
+Attendees: Sarah, James, Priya, Tom
+
+Agenda:
+  1. Review Q2 delivery status
+  2. Set Q3 objectives
+  3. Identify blockers and action items
+
+Discussion:
+  - Sprint velocity averaged 42 story points over the quarter
+  - Two key features shipped on time; one delayed by external dependency
+  - Team raised concern about integration pipeline reliability
+
+Action items:
+  - Sarah to draft Q3 objectives by end of week
+  - James to investigate pipeline flakiness and report findings
+  - Priya to schedule follow-up meeting with product team
+  - Tom to update the delivery scorecard template
+
+Decisions:
+  - Move to bi-weekly retrospectives starting next sprint
+  - Adopt new branching strategy for hotfixes

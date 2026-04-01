@@ -17,6 +17,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { TemplateDetailPage } from '../pages/TemplateDetailPage'
+import type { GovernanceState, TemplateVersionWithGovernance } from '../types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -77,9 +78,8 @@ const VERSIONS_GOV_1_DEPRECATED = [
   { version: '2.0.0', template_revision_hash: 'cd34', template_path: null, playbook_path: null, input_contract_version: null, ai_mode: 'optional', is_default: false, deprecated_at: null, deprecation_reason: null, promotion_timestamp: null },
 ]
 
-const GOV_STATE_NO_DEFAULT = { template_id: 'exec_brief', lifecycle_status: 'approved', default_version: null, deprecated_versions: [] }
-const GOV_STATE_2_DEFAULT = { template_id: 'exec_brief', lifecycle_status: 'approved', default_version: '2.0.0', deprecated_versions: [] }
-const GOV_STATE_DEPRECATED = { template_id: 'exec_brief', lifecycle_status: 'deprecated', default_version: null, deprecated_versions: [] }
+const GOV_STATE_NO_DEFAULT: GovernanceState = { template_id: 'exec_brief', lifecycle_status: 'approved', default_version: null, deprecated_versions: [] }
+const GOV_STATE_2_DEFAULT: GovernanceState = { template_id: 'exec_brief', lifecycle_status: 'approved', default_version: '2.0.0', deprecated_versions: [] }
 
 const AUDIT_EMPTY: unknown[] = []
 const AUDIT_PROMOTE = [
@@ -130,7 +130,7 @@ beforeEach(() => {
 // Initial page load with governance state
 // ---------------------------------------------------------------------------
 
-function initialLoad(govVersions = VERSIONS_GOV_NO_DEFAULT, govState = GOV_STATE_NO_DEFAULT, audit = AUDIT_EMPTY) {
+function initialLoad(govVersions: TemplateVersionWithGovernance[] = VERSIONS_GOV_NO_DEFAULT, govState: GovernanceState = GOV_STATE_NO_DEFAULT, audit: unknown[] = AUDIT_EMPTY) {
   return [
     ok(DETAIL), ok(VERSIONS_PLAIN), ok(RUNS_EMPTY),
     ok(govVersions), ok(govState), ok(audit),

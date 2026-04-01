@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 
 from ..pipeline import PipelineError
 from .schemas import (
+    AdoBoardPayload,
     ErrorResponse,
     GenerateRequest,
     GenerateResponse,
@@ -54,6 +55,7 @@ def generate(request: GenerateRequest) -> GenerateResponse:
     ``deck_definition.json`` alongside the rendered file.
     """
     request_id = _generate_request_id()
+    is_ado_board = request.ado_board_payload is not None
     is_transcript = request.transcript_payload is not None
     try:
         result, ctx = run_generate(
@@ -66,6 +68,9 @@ def generate(request: GenerateRequest) -> GenerateResponse:
             content_intent=request.content_intent,
             transcript_payload=(
                 request.transcript_payload.model_dump() if is_transcript else None
+            ),
+            ado_board_payload=(
+                request.ado_board_payload.model_dump() if is_ado_board else None
             ),
         )
     except APIError as exc:
@@ -85,16 +90,19 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         slide_count = result.slide_plan.slide_count
         slide_types = result.slide_plan.planned_slide_types
     elif result.deck_definition:
-        # CI / transcript path: slide_plan is None; derive counts from built deck
+        # CI / transcript / ADO board path: slide_plan is None; derive counts from built deck
         slides = result.deck_definition.get("slides", [])
         slide_count = len(slides)
         slide_types = [s.get("type", "") for s in slides]
 
-    # Transcript path overrides the playbook label so the caller can distinguish it
-    # from a raw content-intelligence call without inspecting input fields.
-    effective_playbook_id = (
-        "transcript-intelligence" if is_transcript else result.playbook_id
-    )
+    # ADO board and transcript paths override the playbook label so the caller
+    # can distinguish them from a raw content-intelligence call.
+    if is_ado_board:
+        effective_playbook_id = "ado-board-intelligence"
+    elif is_transcript:
+        effective_playbook_id = "transcript-intelligence"
+    else:
+        effective_playbook_id = result.playbook_id
 
     return GenerateResponse(
         request_id=request_id,
@@ -110,8 +118,9 @@ def generate(request: GenerateRequest) -> GenerateResponse:
         artifact_paths=result.artifact_paths,
         notes=result.notes or None,
         content_intent_mode=(
-            False if is_transcript
+            False if (is_ado_board or is_transcript)
             else result.playbook_id == "content-intelligence"
         ),
         transcript_mode=is_transcript,
+        ado_board_mode=is_ado_board,
     )

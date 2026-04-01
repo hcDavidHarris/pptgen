@@ -1,0 +1,17 @@
+schema_version: 1
+primitive_id: image_text_slide
+version: 1.0.0
+layout_id: visual_text_split
+constraints:
+  allow_extra_content: false
+slots:
+  image:
+    required: true
+    content_type: dict
+    maps_to: visual
+    description: "Image reference metadata (path, alt text)"
+  text:
+    required: true
+    content_type: dict
+    maps_to: text
+    description: "Narrative text content alongside the image"

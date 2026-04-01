@@ -32,6 +32,15 @@ const defaultProps = {
   onTranscriptMeetingTypeChange: vi.fn(),
   transcriptAudience: '',
   onTranscriptAudienceChange: vi.fn(),
+  // ADO Board mode props (default to empty for text-mode tests)
+  adoBoardTitle: '',
+  onAdoBoardTitleChange: vi.fn(),
+  adoBoardWorkItemsJson: '',
+  onAdoBoardWorkItemsJsonChange: vi.fn(),
+  adoBoardIteration: '',
+  onAdoBoardIterationChange: vi.fn(),
+  adoBoardTeam: '',
+  onAdoBoardTeamChange: vi.fn(),
   // input mode (default to text for most tests)
   inputMode: 'text' as const,
   onInputModeChange: vi.fn(),
@@ -232,5 +241,104 @@ describe('GenerateForm — transcript mode', () => {
     )
     await user.selectOptions(screen.getByRole('combobox', { name: /meeting type/i }), 'eos')
     expect(onTranscriptMeetingTypeChange).toHaveBeenCalledWith('eos')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ADO Board mode
+// ---------------------------------------------------------------------------
+
+describe('GenerateForm — ADO Board mode', () => {
+  const adoBoardProps = {
+    ...defaultProps,
+    inputMode: 'ado-board' as const,
+  }
+
+  it('shows Board title field in ADO Board mode', () => {
+    render(<GenerateForm {...adoBoardProps} />)
+    expect(screen.getByRole('textbox', { name: /board title/i })).toBeInTheDocument()
+  })
+
+  it('shows Work items JSON textarea in ADO Board mode', () => {
+    render(<GenerateForm {...adoBoardProps} />)
+    expect(screen.getByRole('textbox', { name: /work items json/i })).toBeInTheDocument()
+  })
+
+  it('shows Iteration and Team fields in ADO Board mode', () => {
+    render(<GenerateForm {...adoBoardProps} />)
+    expect(screen.getByRole('textbox', { name: /iteration/i })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /team/i })).toBeInTheDocument()
+  })
+
+  it('hides raw input textarea in ADO Board mode', () => {
+    render(<GenerateForm {...adoBoardProps} />)
+    expect(screen.queryByRole('textbox', { name: /raw input text/i })).not.toBeInTheDocument()
+  })
+
+  it('disables Generate when board title is empty', () => {
+    render(<GenerateForm {...adoBoardProps} adoBoardTitle="" />)
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+  })
+
+  it('enables Generate when board title is non-empty and no JSON error', () => {
+    render(<GenerateForm {...adoBoardProps} adoBoardTitle="Q3 Sprint" />)
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+  })
+
+  it('disables Generate when work items JSON is invalid', () => {
+    render(
+      <GenerateForm
+        {...adoBoardProps}
+        adoBoardTitle="Q3 Sprint"
+        adoBoardWorkItemsJson="{invalid json"
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+  })
+
+  it('shows JSON error message when work items JSON is invalid', () => {
+    render(
+      <GenerateForm
+        {...adoBoardProps}
+        adoBoardTitle="Q3 Sprint"
+        adoBoardWorkItemsJson="{invalid"
+      />
+    )
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+  })
+
+  it('disables Generate when work items JSON is valid object (not array)', () => {
+    render(
+      <GenerateForm
+        {...adoBoardProps}
+        adoBoardTitle="Q3 Sprint"
+        adoBoardWorkItemsJson='{"title": "item"}'
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeDisabled()
+  })
+
+  it('enables Generate when work items JSON is valid array', () => {
+    render(
+      <GenerateForm
+        {...adoBoardProps}
+        adoBoardTitle="Q3 Sprint"
+        adoBoardWorkItemsJson='[{"title": "item", "state": "Active"}]'
+      />
+    )
+    expect(screen.getByRole('button', { name: 'Generate' })).toBeEnabled()
+  })
+
+  it('calls onAdoBoardTitleChange when title is typed', async () => {
+    const onAdoBoardTitleChange = vi.fn()
+    const user = userEvent.setup()
+    render(<GenerateForm {...adoBoardProps} onAdoBoardTitleChange={onAdoBoardTitleChange} />)
+    await user.type(screen.getByRole('textbox', { name: /board title/i }), 'Sprint')
+    expect(onAdoBoardTitleChange).toHaveBeenCalled()
+  })
+
+  it('renders ADO Boards radio option', () => {
+    render(<GenerateForm {...defaultProps} />)
+    expect(screen.getByRole('radio', { name: 'ADO Boards' })).toBeInTheDocument()
   })
 })
